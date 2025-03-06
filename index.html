@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TRON Runner - Farcade Template</title>
+    <!-- Include Phaser -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background: #000;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+
+      #game-container {
+        width: 500px;
+        height: 800px;
+        background: #000;
+        position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+        box-shadow: 0 0 20px rgba(0, 157, 255, 0.5);
+      }
+
+      #game-container canvas {
+        width: 100%;
+        height: 100%;
+      }
+
+      #debug {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        background: rgba(0, 157, 255, 0.2);
+        color: #00ffff;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-family: monospace;
+        display: none;
+        border: 1px solid rgba(0, 157, 255, 0.5);
+      }
+
+      .debug-mode #debug {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container"></div>
+    <div id="debug"></div>
+    <script>
+      // Debug utilities
+      const debug = {
+        enabled: false,
+        log: (...args) => {
+          if (debug.enabled) {
+            const debugElement = document.getElementById('debug')
+            if (debugElement) {
+              debugElement.textContent = args.join(' ')
+            }
+            console.log('[DEBUG]', ...args)
+          }
+        },
+      }
+
+      // Toggle debug mode with Alt+D
+      document.addEventListener('keydown', (e) => {
+        if (e.altKey && e.key === 'd') {
+          debug.enabled = !debug.enabled
+          document.body.classList.toggle('debug-mode')
+          debug.log('Debug mode:', debug.enabled ? 'enabled' : 'disabled')
+        }
+      })
+
+      // Game configuration
+      const config = {
+        type: Phaser.AUTO,
+        parent: 'game-container',
+        width: 500,
+        height: 800,
+        physics: {
+          default: 'arcade',
+          arcade: {
+            gravity: { y: 1500 },
+            debug: false,
+          },
+        },
+        scene: {
+          preload: preload,
+          create: create,
+          update: update,
+        },
+      }
+
+      const game = new Phaser.Game(config)
+
+      // Game variables
+      let player
+      let platforms
+      let ground
+      let score = 0
+      let scoreText
+      let gameSpeed = 300
+      let isGameOver = false
+      let gridLines
+
+      function createGlowingShape(scene, color, glowColor, draw) {
+        // Create main shape
+        const shape = scene.add.graphics()
+        console.log('🚀 ~ createGlowingShape ~ shape:', shape)
+        shape.lineStyle(2, color, 1)
+        shape.fillStyle(color, 0.7)
+        draw(shape)
+
+        // Create glow effect
+        const glow = scene.add.graphics()
+        glow.lineStyle(4, glowColor, 0.5)
+        draw(glow)
+
+        // Generate texture with both layers
+        const bounds = shape.geom.getBounds()
+        const padding = 10 // For glow effect
+        const key = `shape_${Math.random()}`
+        scene.game.renderer.generateTexture(
+          shape,
+          bounds.width + padding * 2,
+          bounds.height + padding * 2,
+          key,
+          padding,
+          padding
+        )
+
+        shape.destroy()
+        glow.destroy()
+
+        return key
+      }
+
+      function preload() {
+        this.load.on('complete', () => {
+          // Create player texture (TRON style)
+          const playerKey = createGlowingShape(
+            this,
+            0x00ffff, // Cyan
+            0x00a5ff, // Blue glow
+            (graphics) => {
+              graphics.fillRect(0, 0, 40, 60)
+              graphics.strokeRect(0, 0, 40, 60)
+            }
+          )
+
+          // Create obstacle texture (TRON style)
+          const obstacleKey = createGlowingShape(
+            this,
+            0xff0055, // Pink
+            0xff003c, // Red glow
+            (graphics) => {
+              graphics.fillRect(0, 0, 80, 80)
+              graphics.strokeRect(0, 0, 80, 80)
+            }
+          )
+
+          // Create ground texture
+          const groundKey = createGlowingShape(
+            this,
+            0x00a5ff, // Blue
+            0x0077ff, // Blue glow
+            (graphics) => {
+              graphics.fillRect(0, 0, config.width, 4)
+              graphics.strokeRect(0, 0, config.width, 4)
+            }
+          )
+
+          this.textures.addKey('player', playerKey)
+          this.textures.addKey('obstacle', obstacleKey)
+          this.textures.addKey('ground', groundKey)
+        })
+      }
+
+      function createGrid(scene) {
+        const graphics = scene.add.graphics()
+        graphics.lineStyle(1, 0x0066ff, 0.3)
+
+        // Vertical lines
+        for (let x = 0; x < config.width; x += 50) {
+          graphics.moveTo(x, 0)
+          graphics.lineTo(x, config.height)
+        }
+
+        // Horizontal lines
+        for (let y = 0; y < config.height; y += 50) {
+          graphics.moveTo(0, y)
+          graphics.lineTo(config.width, y)
+        }
+
+        graphics.strokePath()
+        return graphics
+      }
+
+      function create() {
+        // Add background grid
+        gridLines = createGrid(this)
+
+        // Add ground
+        ground = this.physics.add.staticImage(
+          config.width / 2,
+          config.height - 50,
+          'ground'
+        )
+        ground.setScale(1, 4)
+        ground.refreshBody()
+
+        // Add player
+        player = this.physics.add.sprite(100, config.height - 150, 'player')
+        player.setCollideWorldBounds(true)
+
+        // Add platforms group
+        platforms = this.physics.add.group()
+
+        // Add score text with TRON style
+        scoreText = this.add.text(16, 16, 'Score: 0', {
+          fontSize: '32px',
+          fill: '#00ffff',
+          fontFamily: 'monospace',
+          stroke: '#0066ff',
+          strokeThickness: 2,
+        })
+
+        // Add collisions
+        this.physics.add.collider(player, ground)
+        this.physics.add.collider(player, platforms, gameOver, null, this)
+
+        // Add controls
+        this.input.on('pointerdown', jump)
+        this.input.keyboard.on('keydown-SPACE', jump)
+
+        // Start platform spawning
+        this.time.addEvent({
+          delay: 2000,
+          callback: spawnObstacle,
+          callbackScope: this,
+          loop: true,
+        })
+      }
+
+      function update() {
+        if (isGameOver) return
+
+        // Update score
+        score += 1
+        scoreText.setText('Score: ' + score)
+
+        // Remove obstacles that are off screen
+        platforms.children.iterate((obstacle) => {
+          if (obstacle && obstacle.x < -obstacle.width) {
+            obstacle.destroy()
+          }
+        })
+
+        // Increase game speed over time
+        gameSpeed = 300 + Math.floor(score / 500) * 50
+      }
+
+      function jump() {
+        if (isGameOver) return
+        if (player.body.touching.down) {
+          player.setVelocityY(-700)
+          // Add trail effect when jumping
+          createTrail(player.x, player.y)
+        }
+      }
+
+      function createTrail(x, y) {
+        const trail = game.scene.scenes[0].add.graphics()
+        trail.fillStyle(0x00ffff, 0.5)
+        trail.fillCircle(x, y, 20)
+
+        game.scene.scenes[0].tweens.add({
+          targets: trail,
+          alpha: 0,
+          scale: 0.5,
+          duration: 200,
+          onComplete: () => trail.destroy(),
+        })
+      }
+
+      function spawnObstacle() {
+        if (isGameOver) return
+        const obstacle = platforms.create(
+          config.width + 40,
+          config.height - 90,
+          'obstacle'
+        )
+        obstacle.setImmovable(true)
+        obstacle.setVelocityX(-gameSpeed)
+      }
+
+      function gameOver() {
+        this.physics.pause()
+        isGameOver = true
+
+        // Add game over text with TRON style
+        const gameOverText = this.add.text(
+          config.width / 2,
+          config.height / 2,
+          'GAME OVER\nTap to Restart',
+          {
+            fontSize: '48px',
+            fill: '#00ffff',
+            align: 'center',
+            fontFamily: 'monospace',
+            stroke: '#0066ff',
+            strokeThickness: 4,
+          }
+        )
+        gameOverText.setOrigin(0.5)
+
+        // Add glow effect to game over text
+        gameOverText.setBlendMode(Phaser.BlendModes.ADD)
+
+        // Add restart functionality
+        this.input.on('pointerdown', () => {
+          this.scene.restart()
+          score = 0
+          isGameOver = false
+          gameSpeed = 300
+        })
+      }
+
+      // Error handling
+      window.addEventListener('error', (event) => {
+        debug.log('Error:', event.message)
+        console.error('Game error:', event)
+      })
+    </script>
+  </body>
+</html>
