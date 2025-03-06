@@ -1,11 +1,10 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TRON Runner - Farcade Template</title>
-    <!-- Include Phaser -->
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+    <title>Bouncing Ball Platformer</title>
+    <script src="https://unpkg.com/@farcade/game-sdk@latest/dist/index.min.js"></script>
     <style>
       body {
         margin: 0;
@@ -14,334 +13,364 @@
         justify-content: center;
         align-items: center;
         min-height: 100vh;
-        background: #000;
-        font-family:
-          system-ui,
-          -apple-system,
-          sans-serif;
+        background: #222;
+        font-family: Arial, sans-serif;
       }
-
-      #game-container {
-        width: 500px;
-        height: 800px;
-        background: #000;
-        position: relative;
-        overflow: hidden;
-        border-radius: 8px;
-        box-shadow: 0 0 20px rgba(0, 157, 255, 0.5);
+      #gameCanvas {
+        background: #87ceeb;
+        border: 2px solid #000;
       }
-
-      #game-container canvas {
-        width: 100%;
-        height: 100%;
+      #ui {
+        position: absolute;
+        color: white;
+        padding: 10px;
+        pointer-events: none;
       }
-
-      #debug {
-        position: fixed;
-        bottom: 20px;
-        left: 20px;
-        background: rgba(0, 157, 255, 0.2);
-        color: #00ffff;
-        padding: 8px 12px;
-        border-radius: 4px;
-        font-size: 12px;
-        font-family: monospace;
+      .screen {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        text-align: center;
+        padding: 20px;
+        width: 600px;
         display: none;
-        border: 1px solid rgba(0, 157, 255, 0.5);
       }
-
-      .debug-mode #debug {
-        display: block;
+      .touch-controls {
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+        display: none;
+        justify-content: space-between;
+        padding: 10px;
+      }
+      .touch-btn {
+        width: 80px;
+        height: 80px;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 10px;
+        touch-action: none;
+      }
+      @media (max-width: 768px) {
+        .touch-controls {
+          display: flex;
+        }
       }
     </style>
   </head>
   <body>
-    <div id="game-container"></div>
-    <div id="debug"></div>
+    <div id="ui">
+      Score: <span id="score">0</span> | Lives: <span id="lives">3</span>
+    </div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="startScreen" class="screen">
+      <h1>Bouncing Ball Platformer</h1>
+      <p>Controls:</p>
+      <p>Move: ←/→ or A/D</p>
+      <p>Jump: Space or W (Double Jump Available)</p>
+      <p>Pause: P</p>
+      <p>Avoid the bouncing balls!</p>
+      <p>Press Space to Start</p>
+    </div>
+    <div id="gameOverScreen" class="screen">
+      <h1>Game Over</h1>
+      <p>Final Score: <span id="finalScore">0</span></p>
+      <p>Press Space to Restart</p>
+    </div>
+    <div class="touch-controls">
+      <div id="touchLeft" class="touch-btn"></div>
+      <div id="touchRight" class="touch-btn"></div>
+      <div id="touchJump" class="touch-btn"></div>
+    </div>
+
     <script>
-      // Debug utilities
-      const debug = {
-        enabled: false,
-        log: (...args) => {
-          if (debug.enabled) {
-            const debugElement = document.getElementById('debug')
-            if (debugElement) {
-              debugElement.textContent = args.join(' ')
-            }
-            console.log('[DEBUG]', ...args)
-          }
-        },
-      }
+      const canvas = document.getElementById('gameCanvas')
+      const ctx = canvas.getContext('2d')
+      const startScreen = document.getElementById('startScreen')
+      const gameOverScreen = document.getElementById('gameOverScreen')
+      const scoreDisplay = document.getElementById('score')
+      const livesDisplay = document.getElementById('lives')
+      const finalScoreDisplay = document.getElementById('finalScore')
 
-      // Toggle debug mode with Alt+D
-      document.addEventListener('keydown', (e) => {
-        if (e.altKey && e.key === 'd') {
-          debug.enabled = !debug.enabled
-          document.body.classList.toggle('debug-mode')
-          debug.log('Debug mode:', debug.enabled ? 'enabled' : 'disabled')
+      canvas.width = 800
+      canvas.height = 600
+
+      const GRAVITY = 0.5
+      const FRICTION = 0.8
+      let gameState = 'start'
+      let lastTime = 0
+      let spawnTimer = 0
+      let nextSpawnDelay = 5 // Start with 5-second delay
+
+      class Player {
+        constructor() {
+          this.width = 30
+          this.height = 40
+          this.x = 100
+          this.y = canvas.height - this.height
+          this.dx = 0
+          this.dy = 0
+          this.speed = 5
+          this.jumpForce = -12
+          this.jumps = 2
+          this.maxJumps = 2
+          this.onGround = false
+          this.lives = 3
         }
-      })
 
-      // Game configuration
-      const config = {
-        type: Phaser.AUTO,
-        parent: 'game-container',
-        width: 500,
-        height: 800,
-        physics: {
-          default: 'arcade',
-          arcade: {
-            gravity: { y: 1500 },
-            debug: false,
-          },
-        },
-        scene: {
-          preload: preload,
-          create: create,
-          update: update,
-        },
+        draw() {
+          ctx.fillStyle = this.alive ? '#00FF00' : '#FF0000'
+          ctx.fillRect(this.x, this.y, this.width, this.height)
+        }
+
+        update(deltaTime) {
+          this.dy += GRAVITY
+          this.y += this.dy
+          this.x += this.dx
+
+          this.dx *= FRICTION
+
+          if (this.x < 0) this.x = 0
+          if (this.x + this.width > canvas.width)
+            this.x = canvas.width - this.width
+
+          platforms.forEach((platform) => {
+            if (this.isColliding(platform) && this.dy > 0) {
+              this.y = platform.y - this.height
+              this.dy = 0
+              this.onGround = true
+              this.jumps = this.maxJumps
+            }
+          })
+
+          if (this.y + this.height > canvas.height) {
+            this.y = canvas.height - this.height
+            this.dy = 0
+            this.onGround = true
+            this.jumps = this.maxJumps
+          }
+        }
+
+        jump() {
+          if (this.jumps > 0) {
+            this.dy = this.jumpForce
+            this.jumps--
+            this.onGround = false
+          }
+        }
+
+        isColliding(obj) {
+          return (
+            this.x < obj.x + obj.width &&
+            this.x + this.width > obj.x &&
+            this.y + this.height > obj.y &&
+            this.y + this.height < obj.y + obj.height + 5
+          )
+        }
       }
 
-      const game = new Phaser.Game(config)
+      class Ball {
+        constructor(x, y, radius, dx, dy) {
+          this.x = x
+          this.y = y
+          this.radius = radius
+          this.dx = dx
+          this.dy = dy
+          this.color = `hsl(${Math.random() * 360}, 100%, 50%)`
+          this.lifetime = 20 // Ball lasts 20 seconds
+        }
 
-      // Game variables
-      let player
-      let platforms
-      let ground
+        draw() {
+          ctx.beginPath()
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2)
+          ctx.fillStyle = this.color
+          ctx.fill()
+          ctx.closePath()
+        }
+
+        update(deltaTime) {
+          this.dy += GRAVITY
+          this.x += this.dx
+          this.y += this.dy
+          this.lifetime -= deltaTime / 60 // Adjusted for 60 FPS normalization
+
+          if (this.x - this.radius < 0 || this.x + this.radius > canvas.width) {
+            this.dx = -this.dx * 0.9
+            this.x = Math.max(
+              this.radius,
+              Math.min(canvas.width - this.radius, this.x)
+            )
+          }
+
+          if (this.y + this.radius > canvas.height) {
+            this.y = canvas.height - this.radius
+            this.dy = -this.dy * 0.9
+          }
+
+          platforms.forEach((platform) => {
+            if (this.isColliding(platform) && this.dy > 0) {
+              this.y = platform.y - this.radius
+              this.dy = -this.dy * 0.9
+            }
+          })
+        }
+
+        isColliding(obj) {
+          const dx = this.x - (obj.x + obj.width / 2)
+          const dy = this.y - (obj.y + obj.height / 2)
+          const distance = Math.sqrt(dx * dx + dy * dy)
+          return distance < this.radius + Math.max(obj.width, obj.height) / 2
+        }
+      }
+
+      class Platform {
+        constructor(x, y, width, height) {
+          this.x = x
+          this.y = y
+          this.width = width
+          this.height = height
+        }
+
+        draw() {
+          ctx.fillStyle = '#666'
+          ctx.fillRect(this.x, this.y, this.width, this.height)
+        }
+      }
+
+      let player = new Player()
+      let balls = []
+      let platforms = [
+        new Platform(200, 450, 150, 20),
+        new Platform(450, 350, 150, 20),
+        new Platform(150, 250, 150, 20),
+        new Platform(500, 150, 150, 20),
+      ]
       let score = 0
-      let scoreText
-      let gameSpeed = 300
-      let isGameOver = false
-      let gridLines
+      let gameTime = 0
 
-      function createGlowingShape(scene, color, glowColor, draw) {
-        // Create main shape
-        const shape = scene.add.graphics()
-        console.log('🚀 ~ createGlowingShape ~ shape:', shape)
-        shape.lineStyle(2, color, 1)
-        shape.fillStyle(color, 0.7)
-        draw(shape)
-
-        // Create glow effect
-        const glow = scene.add.graphics()
-        glow.lineStyle(4, glowColor, 0.5)
-        draw(glow)
-
-        // Generate texture with both layers
-        const bounds = shape.geom.getBounds()
-        const padding = 10 // For glow effect
-        const key = `shape_${Math.random()}`
-        scene.game.renderer.generateTexture(
-          shape,
-          bounds.width + padding * 2,
-          bounds.height + padding * 2,
-          key,
-          padding,
-          padding
-        )
-
-        shape.destroy()
-        glow.destroy()
-
-        return key
-      }
-
-      function preload() {
-        this.load.on('complete', () => {
-          // Create player texture (TRON style)
-          const playerKey = createGlowingShape(
-            this,
-            0x00ffff, // Cyan
-            0x00a5ff, // Blue glow
-            (graphics) => {
-              graphics.fillRect(0, 0, 40, 60)
-              graphics.strokeRect(0, 0, 40, 60)
-            }
-          )
-
-          // Create obstacle texture (TRON style)
-          const obstacleKey = createGlowingShape(
-            this,
-            0xff0055, // Pink
-            0xff003c, // Red glow
-            (graphics) => {
-              graphics.fillRect(0, 0, 80, 80)
-              graphics.strokeRect(0, 0, 80, 80)
-            }
-          )
-
-          // Create ground texture
-          const groundKey = createGlowingShape(
-            this,
-            0x00a5ff, // Blue
-            0x0077ff, // Blue glow
-            (graphics) => {
-              graphics.fillRect(0, 0, config.width, 4)
-              graphics.strokeRect(0, 0, config.width, 4)
-            }
-          )
-
-          this.textures.addKey('player', playerKey)
-          this.textures.addKey('obstacle', obstacleKey)
-          this.textures.addKey('ground', groundKey)
-        })
-      }
-
-      function createGrid(scene) {
-        const graphics = scene.add.graphics()
-        graphics.lineStyle(1, 0x0066ff, 0.3)
-
-        // Vertical lines
-        for (let x = 0; x < config.width; x += 50) {
-          graphics.moveTo(x, 0)
-          graphics.lineTo(x, config.height)
-        }
-
-        // Horizontal lines
-        for (let y = 0; y < config.height; y += 50) {
-          graphics.moveTo(0, y)
-          graphics.lineTo(config.width, y)
-        }
-
-        graphics.strokePath()
-        return graphics
-      }
-
-      function create() {
-        // Add background grid
-        gridLines = createGrid(this)
-
-        // Add ground
-        ground = this.physics.add.staticImage(
-          config.width / 2,
-          config.height - 50,
-          'ground'
-        )
-        ground.setScale(1, 4)
-        ground.refreshBody()
-
-        // Add player
-        player = this.physics.add.sprite(100, config.height - 150, 'player')
-        player.setCollideWorldBounds(true)
-
-        // Add platforms group
-        platforms = this.physics.add.group()
-
-        // Add score text with TRON style
-        scoreText = this.add.text(16, 16, 'Score: 0', {
-          fontSize: '32px',
-          fill: '#00ffff',
-          fontFamily: 'monospace',
-          stroke: '#0066ff',
-          strokeThickness: 2,
-        })
-
-        // Add collisions
-        this.physics.add.collider(player, ground)
-        this.physics.add.collider(player, platforms, gameOver, null, this)
-
-        // Add controls
-        this.input.on('pointerdown', jump)
-        this.input.keyboard.on('keydown-SPACE', jump)
-
-        // Start platform spawning
-        this.time.addEvent({
-          delay: 2000,
-          callback: spawnObstacle,
-          callbackScope: this,
-          loop: true,
-        })
-      }
-
-      function update() {
-        if (isGameOver) return
-
-        // Update score
-        score += 1
-        scoreText.setText('Score: ' + score)
-
-        // Remove obstacles that are off screen
-        platforms.children.iterate((obstacle) => {
-          if (obstacle && obstacle.x < -obstacle.width) {
-            obstacle.destroy()
-          }
-        })
-
-        // Increase game speed over time
-        gameSpeed = 300 + Math.floor(score / 500) * 50
-      }
-
-      function jump() {
-        if (isGameOver) return
-        if (player.body.touching.down) {
-          player.setVelocityY(-700)
-          // Add trail effect when jumping
-          createTrail(player.x, player.y)
-        }
-      }
-
-      function createTrail(x, y) {
-        const trail = game.scene.scenes[0].add.graphics()
-        trail.fillStyle(0x00ffff, 0.5)
-        trail.fillCircle(x, y, 20)
-
-        game.scene.scenes[0].tweens.add({
-          targets: trail,
-          alpha: 0,
-          scale: 0.5,
-          duration: 200,
-          onComplete: () => trail.destroy(),
-        })
-      }
-
-      function spawnObstacle() {
-        if (isGameOver) return
-        const obstacle = platforms.create(
-          config.width + 40,
-          config.height - 90,
-          'obstacle'
-        )
-        obstacle.setImmovable(true)
-        obstacle.setVelocityX(-gameSpeed)
-      }
-
-      function gameOver() {
-        this.physics.pause()
-        isGameOver = true
-
-        // Add game over text with TRON style
-        const gameOverText = this.add.text(
-          config.width / 2,
-          config.height / 2,
-          'GAME OVER\nTap to Restart',
-          {
-            fontSize: '48px',
-            fill: '#00ffff',
-            align: 'center',
-            fontFamily: 'monospace',
-            stroke: '#0066ff',
-            strokeThickness: 4,
-          }
-        )
-        gameOverText.setOrigin(0.5)
-
-        // Add glow effect to game over text
-        gameOverText.setBlendMode(Phaser.BlendModes.ADD)
-
-        // Add restart functionality
-        this.input.on('pointerdown', () => {
-          this.scene.restart()
-          score = 0
-          isGameOver = false
-          gameSpeed = 300
-        })
-      }
-
-      // Error handling
-      window.addEventListener('error', (event) => {
-        debug.log('Error:', event.message)
-        console.error('Game error:', event)
+      const keys = {}
+      document.addEventListener('keydown', (e) => {
+        keys[e.key] = true
+        if (e.key === ' ' && gameState === 'start') startGame()
+        if (e.key === ' ' && gameState === 'gameover') resetGame()
+        if (e.key === 'p' && gameState === 'playing')
+          gameState = gameState === 'paused' ? 'playing' : 'paused'
       })
+      document.addEventListener('keyup', (e) => (keys[e.key] = false))
+
+      const touchLeft = document.getElementById('touchLeft')
+      const touchRight = document.getElementById('touchRight')
+      const touchJump = document.getElementById('touchJump')
+
+      touchLeft.addEventListener('touchstart', () => (keys['ArrowLeft'] = true))
+      touchLeft.addEventListener('touchend', () => (keys['ArrowLeft'] = false))
+      touchRight.addEventListener(
+        'touchstart',
+        () => (keys['ArrowRight'] = true)
+      )
+      touchRight.addEventListener(
+        'touchend',
+        () => (keys['ArrowRight'] = false)
+      )
+      touchJump.addEventListener('touchstart', (e) => {
+        e.preventDefault()
+        player.jump()
+      })
+
+      function startGame() {
+        gameState = 'playing'
+        startScreen.style.display = 'none'
+        resetGame()
+      }
+
+      function resetGame() {
+        player = new Player()
+        balls = []
+        score = 0
+        gameTime = 0
+        spawnTimer = 0
+        nextSpawnDelay = 5 // Start with 5-second delay
+        spawnBall() // Spawn first ball
+        gameState = 'playing'
+        gameOverScreen.style.display = 'none'
+      }
+
+      function spawnBall() {
+        const radius = Math.random() * 20 + 10
+        const x = Math.random() * (canvas.width - radius * 2) + radius
+        const dx = (Math.random() - 0.5) * 8
+        const dy = -(Math.random() * 5 + 5)
+        balls.push(new Ball(x, 50, radius, dx, dy))
+      }
+
+      function update(deltaTime) {
+        if (gameState !== 'playing') return
+
+        // Player movement
+        if (keys['ArrowLeft'] || keys['a']) player.dx = -player.speed
+        if (keys['ArrowRight'] || keys['d']) player.dx = player.speed
+        if ((keys[' '] || keys['w']) && !keys['spacePressed']) {
+          player.jump()
+          keys['spacePressed'] = true
+        }
+        if (!keys[' ']) keys['spacePressed'] = false
+
+        player.update(deltaTime)
+
+        // Ball updates and collision
+        balls.forEach((ball, index) => {
+          ball.update(deltaTime)
+          if (ball.isColliding(player)) {
+            player.lives--
+            if (player.lives <= 0) {
+              gameState = 'gameover'
+              gameOverScreen.style.display = 'block'
+              finalScoreDisplay.textContent = Math.floor(score)
+            }
+          }
+          // Remove balls that have exceeded their lifetime
+          if (ball.lifetime <= 0) {
+            balls.splice(index, 1)
+          }
+        })
+
+        // Game progression
+        gameTime += deltaTime
+        score += deltaTime
+        spawnTimer += deltaTime / 60 // Adjusted for 60 FPS normalization
+
+        // Spawn new balls with decreasing delay (increasing spawn rate), up to 5 balls
+        if (spawnTimer >= nextSpawnDelay && balls.length < 5) {
+          spawnBall()
+          spawnTimer = 0
+          // Decrease spawn delay over time, minimum 1 second
+          nextSpawnDelay = Math.max(1, nextSpawnDelay - gameTime / 60 / 60) // Reduces by 1 second every minute
+        }
+
+        // UI updates
+        scoreDisplay.textContent = Math.floor(score)
+        livesDisplay.textContent = player.lives
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+        platforms.forEach((platform) => platform.draw())
+        player.draw()
+        balls.forEach((ball) => ball.draw())
+      }
+
+      function gameLoop(timestamp) {
+        const deltaTime = (timestamp - lastTime) / 16.67 // Normalize to 60 FPS
+        lastTime = timestamp
+
+        update(deltaTime)
+        draw()
+
+        requestAnimationFrame(gameLoop)
+      }
+
+      startScreen.style.display = 'block'
+      requestAnimationFrame(gameLoop)
     </script>
   </body>
 </html>

@@ -28,10 +28,43 @@ A simple template for creating HTML5 games that can be played on Farcade. This t
 ## Game Requirements
 
 Your game should:
+
 - Fit within the 800x600 container
 - Handle window resizing gracefully
 - Work without requiring external resources
 - Be playable with keyboard/mouse controls
+
+## Add Farcade SDK
+
+1. Add this script tag to load the SDK in the head section:
+<script src="https://unpkg.com/@farcade/game-sdk@latest/dist/index.min.js"></script>
+
+2. Add these SDK calls to the game (these are easy to add with ai prompting)
+
+// When the game is fully loaded and ready to play:
+window.FarcadeSDK.singlePlayer.actions.ready();
+
+// When the game is over (replace scoreValue with the actual score):
+window.FarcadeSDK.singlePlayer.actions.gameOver({ score: scoreValue });
+
+// For haptic feedback on important interactions (like jumping or hitting obstacles):
+window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+
+// Add this to handle play again requests:
+window.FarcadeSDK.on('play_again', () => {
+// Reset the game state here
+// For example: resetGame(), startNewGame(), etc.
+});
+
+// Add this to handle mute/unmute:
+window.FarcadeSDK.on('toggle_mute', (data) => {
+// Set game audio based on data.isMuted
+// For example: setMuted(data.isMuted)
+});
+
+3. Make sure to call the ready event when the game is fully loaded and playable.
+4. Call gameOver when the player loses or completes the game.
+5. Add haptic feedback for important game events.
 
 ## Tips
 
@@ -47,6 +80,7 @@ Your game should:
 ## Example Code
 
 The template includes:
+
 - Basic Phaser.js setup with physics
 - Debug mode toggle
 - Error handling
@@ -55,4 +89,4 @@ The template includes:
 
 ## License
 
-MIT 
+MIT
