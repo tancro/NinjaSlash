@@ -124,27 +124,6 @@
         font-family: 'Press Start 2P', cursive;
       }
 
-      .start-button {
-        margin-top: 30px;
-        padding: 15px 30px;
-        font-size: 24px;
-        font-family: 'Press Start 2P', cursive;
-        background: rgba(255, 255, 255, 0.1);
-        border: 3px solid #fff;
-        border-radius: 10px;
-        color: #fff;
-        cursor: pointer;
-        transition: transform 0.1s, background-color 0.2s;
-      }
-
-      .start-button:hover {
-        background: rgba(255, 255, 255, 0.2);
-      }
-
-      .start-button:active {
-        transform: scale(0.95);
-      }
-
       .controls {
         position: absolute;
         bottom: 40px;
@@ -193,7 +172,7 @@
         <div id="startScreen" class="screen">
             <h1>NINJA SLASH</h1>
             <p>Cut the bamboo while avoiding the branches!</p>
-            <button class="start-button" onclick="startGame()">START</button>
+            <p class="start-hint">Press Space or Tap Screen to Start</p>
         </div>
         </div>
         <div class="controls">
@@ -897,10 +876,8 @@
           
           if (currentSection.hasBranch && currentSection.branchSide === side) {
             startShake(20); // Attiva shake alla collisione
-            // Disattiva immediatamente i controlli
-            document.querySelector('.controls').style.pointerEvents = 'none';
             AudioManager.createGameOverSound();
-            setTimeout(() => gameOver(), 350);
+            setTimeout(() => gameOver(), 200); // Aumentato il delay per vedere meglio lo shake
             return;
           }
           
@@ -914,11 +891,9 @@
             setTimeout(() => {
               if (gameState === 'playing') {
                 if (nextSection && nextSection.hasBranch && nextSection.branchSide === ninjaPosition) {
-                  startShake(20);
-                  // Disattiva immediatamente i controlli
-                  document.querySelector('.controls').style.pointerEvents = 'none';
+                  startShake(20); // Attiva shake alla collisione con la sezione successiva
                   AudioManager.createGameOverSound();
-                  setTimeout(() => gameOver(), 350);
+                  setTimeout(() => gameOver(), 200);
                   return;
                 }
                 updateBamboo();
@@ -941,10 +916,8 @@
         speed = 2;
         ninjaPosition = 'left';
         startScreen.style.display = 'none';
-        // Riattiva i controlli
-        document.querySelector('.controls').style.pointerEvents = 'auto';
         energy = MAX_ENERGY;
-        currentEnergyDecay = INITIAL_ENERGY_DECAY;
+        currentEnergyDecay = INITIAL_ENERGY_DECAY;  // Reset al decay iniziale
         
         initializeBamboo();
         window.FarcadeSDK.singlePlayer.actions.ready();
@@ -956,31 +929,36 @@
       }
 
       document.addEventListener('keydown', (e) => {
-        initAudio();
-        
-        // Gestione frecce per il gioco (solo durante il gameplay)
+        initAudio();  // Inizializza l'audio al primo input
+        if (e.key === ' ') {
+          if (gameState === 'start' || gameState === 'gameover') startGame();
+        }
         if (gameState === 'playing') {
-          if (e.key === 'ArrowLeft') {
+          if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
             slash('left');
           }
-          if (e.key === 'ArrowRight') {
+          if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
             slash('right');
           }
         }
       });
 
-      // Controlli touch per mobile
-      leftBtn.addEventListener('touchstart', (e) => {
-        e.preventDefault();
+      leftBtn.addEventListener('mousedown', () => {
         initAudio();
         slash('left');
-      }, { passive: false });
-
-      rightBtn.addEventListener('touchstart', (e) => {
-        e.preventDefault();
+      });
+      rightBtn.addEventListener('mousedown', () => {
         initAudio();
         slash('right');
-      }, { passive: false });
+      });
+      leftBtn.addEventListener('touchstart', () => {
+        initAudio();
+        slash('left');
+      });
+      rightBtn.addEventListener('touchstart', () => {
+        initAudio();
+        slash('right');
+      });
 
       window.FarcadeSDK.on('play_again', () => {
         gameState = 'playing';
@@ -988,17 +966,23 @@
         speed = 2;
         ninjaPosition = 'left';
         startScreen.style.display = 'none';
-        // Riattiva i controlli
-        document.querySelector('.controls').style.pointerEvents = 'auto';
         energy = MAX_ENERGY;
-        currentEnergyDecay = INITIAL_ENERGY_DECAY;
-        
+        currentEnergyDecay = INITIAL_ENERGY_DECAY;  // Reset al decay iniziale
         initializeBamboo();
       });
 
       window.FarcadeSDK.on('toggle_mute', (data) => {
         isMuted = data.muted;
         console.log('Audio ' + (isMuted ? 'muted' : 'unmuted'));
+      });
+
+      // Aggiungi event listener per il tap sullo schermo
+      document.addEventListener('touchstart', (e) => {
+        if (gameState === 'start' || gameState === 'gameover') {
+          if (e.target.className !== 'control-btn') {  // Non avviare se si tocca un pulsante di controllo
+            startGame();
+          }
+        }
       });
 
       gameLoop();

@@ -124,27 +124,6 @@
         font-family: 'Press Start 2P', cursive;
       }
 
-      .start-button {
-        margin-top: 30px;
-        padding: 15px 30px;
-        font-size: 24px;
-        font-family: 'Press Start 2P', cursive;
-        background: rgba(255, 255, 255, 0.1);
-        border: 3px solid #fff;
-        border-radius: 10px;
-        color: #fff;
-        cursor: pointer;
-        transition: transform 0.1s, background-color 0.2s;
-      }
-
-      .start-button:hover {
-        background: rgba(255, 255, 255, 0.2);
-      }
-
-      .start-button:active {
-        transform: scale(0.95);
-      }
-
       .controls {
         position: absolute;
         bottom: 40px;
@@ -193,7 +172,7 @@
         <div id="startScreen" class="screen">
             <h1>NINJA SLASH</h1>
             <p>Cut the bamboo while avoiding the branches!</p>
-            <button class="start-button" onclick="startGame()">START</button>
+            <p class="start-hint">Press Space or Tap Screen to Start</p>
         </div>
         </div>
         <div class="controls">
@@ -209,145 +188,6 @@
       const startScreen = document.getElementById('startScreen');
       const leftBtn = document.getElementById('leftBtn');
       const rightBtn = document.getElementById('rightBtn');
-
-      // Inizializzazione Web Audio API
-      let audioContext = null;
-      let isMuted = false;
-
-      // Variabili per l'effetto shake
-      let shakeIntensity = 0;
-      let shakeDecay = 0.9;
-      let shakeOffsetX = 0;
-      let shakeOffsetY = 0;
-
-      // Funzione per inizializzare l'audio
-      function initAudio() {
-        if (!audioContext) {
-          audioContext = new (window.AudioContext || window.webkitAudioContext)();
-          console.log('Audio Context initialized');
-        }
-      }
-
-      // Funzione per attivare l'effetto shake
-      function startShake(intensity = 15) {
-        shakeIntensity = intensity;
-      }
-
-      // Funzione per aggiornare l'effetto shake
-      function updateShake() {
-        if (shakeIntensity > 0.5) {
-          shakeOffsetX = (Math.random() - 0.5) * shakeIntensity;
-          shakeOffsetY = (Math.random() - 0.5) * shakeIntensity;
-          shakeIntensity *= shakeDecay;
-        } else {
-          shakeOffsetX = 0;
-          shakeOffsetY = 0;
-          shakeIntensity = 0;
-        }
-      }
-
-      // Sistema di gestione audio
-      const AudioManager = {
-        createSlashSound() {
-          if (isMuted || !audioContext) return;
-          
-          // Oscillatore principale per il suono swoosh
-          const oscillator = audioContext.createOscillator();
-          const gainNode = audioContext.createGain();
-          const filter = audioContext.createBiquadFilter();
-          
-          // Oscillatore per il rumore bianco (aggiunge aria al suono)
-          const noiseLength = 0.2;
-          const bufferSize = audioContext.sampleRate * noiseLength;
-          const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-          const noise = noiseBuffer.getChannelData(0);
-          for (let i = 0; i < bufferSize; i++) {
-            noise[i] = Math.random() * 2 - 1;
-          }
-          
-          const noiseSource = audioContext.createBufferSource();
-          noiseSource.buffer = noiseBuffer;
-          
-          // Filtro per il rumore
-          const noiseFilter = audioContext.createBiquadFilter();
-          const noiseGain = audioContext.createGain();
-          
-          // Configurazione del filtro principale
-          filter.type = 'bandpass';
-          filter.frequency.setValueAtTime(2000, audioContext.currentTime);
-          filter.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.2);
-          filter.Q.setValueAtTime(2, audioContext.currentTime);
-          
-          // Configurazione del filtro del rumore
-          noiseFilter.type = 'bandpass';
-          noiseFilter.frequency.setValueAtTime(1000, audioContext.currentTime);
-          noiseFilter.Q.setValueAtTime(1, audioContext.currentTime);
-          
-          // Connessioni
-          oscillator.connect(filter);
-          filter.connect(gainNode);
-          noiseSource.connect(noiseFilter);
-          noiseFilter.connect(noiseGain);
-          noiseGain.connect(audioContext.destination);
-          gainNode.connect(audioContext.destination);
-          
-          // Configurazione dell'oscillatore principale
-          oscillator.type = 'triangle';
-          oscillator.frequency.setValueAtTime(1200, audioContext.currentTime);
-          oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.2);
-          
-          // Envelope del volume principale
-          gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-          gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.05);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-          
-          // Envelope del volume del rumore
-          noiseGain.gain.setValueAtTime(0, audioContext.currentTime);
-          noiseGain.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.05);
-          noiseGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-          
-          // Avvia i suoni
-          oscillator.start(audioContext.currentTime);
-          noiseSource.start(audioContext.currentTime);
-          oscillator.stop(audioContext.currentTime + 0.2);
-          noiseSource.stop(audioContext.currentTime + 0.2);
-        },
-
-        createGameOverSound() {
-          if (isMuted || !audioContext) return;
-          
-          // Primo oscillatore - suono principale
-          const osc1 = audioContext.createOscillator();
-          const gain1 = audioContext.createGain();
-          osc1.connect(gain1);
-          gain1.connect(audioContext.destination);
-          
-          osc1.type = 'sawtooth';
-          osc1.frequency.setValueAtTime(220, audioContext.currentTime);
-          osc1.frequency.exponentialRampToValueAtTime(110, audioContext.currentTime + 0.2);
-          
-          gain1.gain.setValueAtTime(0.3, audioContext.currentTime);
-          gain1.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-          
-          // Secondo oscillatore - suono di accompagnamento
-          const osc2 = audioContext.createOscillator();
-          const gain2 = audioContext.createGain();
-          osc2.connect(gain2);
-          gain2.connect(audioContext.destination);
-          
-          osc2.type = 'square';
-          osc2.frequency.setValueAtTime(110, audioContext.currentTime);
-          osc2.frequency.exponentialRampToValueAtTime(55, audioContext.currentTime + 0.2);
-          
-          gain2.gain.setValueAtTime(0.2, audioContext.currentTime);
-          gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-          
-          osc1.start(audioContext.currentTime);
-          osc2.start(audioContext.currentTime);
-          osc1.stop(audioContext.currentTime + 0.2);
-          osc2.stop(audioContext.currentTime + 0.2);
-        }
-      };
 
       // Carica l'immagine del bambù
       const bambooImage = new Image();
@@ -420,16 +260,15 @@
 
       // Costanti di gioco
       const BAMBOO_WIDTH = 60;
-      const BRANCH_HEIGHT = 35;
-      const BRANCH_WIDTH = 50;
-      const BAMBOO_SECTION_HEIGHT = 100;
-      const NINJA_SIZE = BAMBOO_SECTION_HEIGHT;
+      const BRANCH_HEIGHT = 35;  // Aggiornato per corrispondere all'altezza della foglia
+      const BRANCH_WIDTH = 50;   // Aggiornato per corrispondere alla larghezza della foglia
+      const BAMBOO_SECTION_HEIGHT = 100;  // Raddoppiato da 50 a 100
+      const NINJA_SIZE = BAMBOO_SECTION_HEIGHT;  // Raddoppiato insieme al bambù
       const FLOOR_HEIGHT = 40;
       
       // Costanti per la barra di energia
       const MAX_ENERGY = 48;
-      const INITIAL_ENERGY_DECAY = 0.2;  // Decay più lento per i primi 10 bambù
-      const NORMAL_ENERGY_DECAY = 0.4;   // Decay normale dopo i primi 10
+      const ENERGY_DECAY = 0.4;
       const ENERGY_GAIN = 12;
       
       // Calcola le posizioni verticali
@@ -444,7 +283,6 @@
       let ninjaPosition = 'left';
       let isAttacking = false;
       let attackTimer = 0;
-      let currentEnergyDecay = INITIAL_ENERGY_DECAY;  // Inizia con il decay più lento
       const ATTACK_DURATION = 20;
       const ATTACK_MOVEMENT = 100;
       const FADE_SPEED = 0.05;
@@ -477,25 +315,12 @@
             return;
           }
           
-          // Aumentiamo la probabilità di rami e riduciamo la distanza di sicurezza
-          if (!lastBranchInfo || lastBranchInfo.safeDistance >= 1) {  // Ridotto da 2 a 1
-            this.hasBranch = Math.random() < 0.7;  // Aumentato da 0.6 a 0.7
+          if (!lastBranchInfo || lastBranchInfo.safeDistance >= 2) {
+            this.hasBranch = Math.random() < 0.6;
             if (this.hasBranch) {
-              // Pattern più complesso per il lato del ramo
-              if (lastBranchInfo && lastBranchInfo.safeDistance === 1) {
-                // Se c'è solo 1 sezione di distanza, alterna sempre il lato
-                this.branchSide = lastBranchInfo.side === 'left' ? 'right' : 'left';
-              } else if (score > 20) {  // Pattern più difficile dopo 20 punti
-                // 30% di probabilità di mettere il ramo sullo stesso lato
-                this.branchSide = Math.random() < 0.3 ? 
-                  (lastBranchInfo ? lastBranchInfo.side : (Math.random() < 0.5 ? 'left' : 'right')) :
-                  (lastBranchInfo ? (lastBranchInfo.side === 'left' ? 'right' : 'left') : (Math.random() < 0.5 ? 'left' : 'right'));
-              } else {
-                // Pattern normale per i primi 20 punti
-                this.branchSide = lastBranchInfo ? 
-                  (lastBranchInfo.side === 'left' ? 'right' : 'left') : 
-                  (Math.random() < 0.5 ? 'left' : 'right');
-              }
+              this.branchSide = lastBranchInfo ? 
+                (lastBranchInfo.side === 'left' ? 'right' : 'left') : 
+                (Math.random() < 0.5 ? 'left' : 'right');
               lastBranchInfo = { side: this.branchSide, safeDistance: 0 };
             } else if (lastBranchInfo) {
               lastBranchInfo.safeDistance++;
@@ -819,14 +644,11 @@
       function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Applica l'effetto shake
-        ctx.save();
-        ctx.translate(shakeOffsetX, shakeOffsetY);
-        
         // Disegna lo sfondo
         if (backgroundImageLoaded) {
           ctx.drawImage(backgroundImage, 0, 0, canvas.width, FLOOR_Y);
         } else {
+          // Fallback colore di sfondo
           ctx.fillStyle = '#87CEEB';
           ctx.fillRect(0, 0, canvas.width, FLOOR_Y);
         }
@@ -835,24 +657,15 @@
         drawBamboo();
         drawNinja();
         drawScoreBoard();
-        
-        ctx.restore();
       }
 
       function update() {
         if (gameState !== 'playing') return;
         
-        // Aggiorna l'effetto shake
-        updateShake();
-        
-        // Aggiorna il decay dell'energia in base al punteggio
-        currentEnergyDecay = score < 10 ? INITIAL_ENERGY_DECAY : NORMAL_ENERGY_DECAY;
-        energy = Math.max(0, energy - currentEnergyDecay);
+        energy = Math.max(0, energy - ENERGY_DECAY);
         
         if (energy <= 0) {
-          startShake(20);
-          AudioManager.createGameOverSound();
-          setTimeout(() => gameOver(), 100);
+          gameOver();
           return;
         }
 
@@ -879,8 +692,6 @@
       }
 
       function slash(side) {
-        initAudio();
-        
         if (gameState !== 'playing') return;
         
         const sectionIndex = bambooSections.findIndex(section => section.y === BAMBOO_BASE_Y);
@@ -893,20 +704,15 @@
           isAttacking = true;
           attackTimer = 0;
           
-          AudioManager.createSlashSound();
-          
           if (currentSection.hasBranch && currentSection.branchSide === side) {
-            startShake(20); // Attiva shake alla collisione
-            // Disattiva immediatamente i controlli
-            document.querySelector('.controls').style.pointerEvents = 'none';
-            AudioManager.createGameOverSound();
-            setTimeout(() => gameOver(), 350);
+            draw();
+            gameOver();
             return;
           }
           
           if (currentSection.intact) {
             currentSection.intact = false;
-            currentSection.cutFromSide = side;
+            currentSection.cutFromSide = side;  // Memorizziamo il lato del taglio
             score++;
             
             energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN);
@@ -914,11 +720,8 @@
             setTimeout(() => {
               if (gameState === 'playing') {
                 if (nextSection && nextSection.hasBranch && nextSection.branchSide === ninjaPosition) {
-                  startShake(20);
-                  // Disattiva immediatamente i controlli
-                  document.querySelector('.controls').style.pointerEvents = 'none';
-                  AudioManager.createGameOverSound();
-                  setTimeout(() => gameOver(), 350);
+                  draw();
+                  gameOver();
                   return;
                 }
                 updateBamboo();
@@ -941,10 +744,7 @@
         speed = 2;
         ninjaPosition = 'left';
         startScreen.style.display = 'none';
-        // Riattiva i controlli
-        document.querySelector('.controls').style.pointerEvents = 'auto';
         energy = MAX_ENERGY;
-        currentEnergyDecay = INITIAL_ENERGY_DECAY;
         
         initializeBamboo();
         window.FarcadeSDK.singlePlayer.actions.ready();
@@ -956,31 +756,23 @@
       }
 
       document.addEventListener('keydown', (e) => {
-        initAudio();
-        
-        // Gestione frecce per il gioco (solo durante il gameplay)
+        if (e.key === ' ') {
+          if (gameState === 'start' || gameState === 'gameover') startGame();
+        }
         if (gameState === 'playing') {
-          if (e.key === 'ArrowLeft') {
+          if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
             slash('left');
           }
-          if (e.key === 'ArrowRight') {
+          if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
             slash('right');
           }
         }
       });
 
-      // Controlli touch per mobile
-      leftBtn.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        initAudio();
-        slash('left');
-      }, { passive: false });
-
-      rightBtn.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        initAudio();
-        slash('right');
-      }, { passive: false });
+      leftBtn.addEventListener('mousedown', () => slash('left'));
+      rightBtn.addEventListener('mousedown', () => slash('right'));
+      leftBtn.addEventListener('touchstart', () => slash('left'));
+      rightBtn.addEventListener('touchstart', () => slash('right'));
 
       window.FarcadeSDK.on('play_again', () => {
         gameState = 'playing';
@@ -988,17 +780,21 @@
         speed = 2;
         ninjaPosition = 'left';
         startScreen.style.display = 'none';
-        // Riattiva i controlli
-        document.querySelector('.controls').style.pointerEvents = 'auto';
         energy = MAX_ENERGY;
-        currentEnergyDecay = INITIAL_ENERGY_DECAY;
-        
         initializeBamboo();
       });
 
       window.FarcadeSDK.on('toggle_mute', (data) => {
-        isMuted = data.muted;
-        console.log('Audio ' + (isMuted ? 'muted' : 'unmuted'));
+        // Audio da implementare
+      });
+
+      // Aggiungi event listener per il tap sullo schermo
+      document.addEventListener('touchstart', (e) => {
+        if (gameState === 'start' || gameState === 'gameover') {
+          if (e.target.className !== 'control-btn') {  // Non avviare se si tocca un pulsante di controllo
+            startGame();
+          }
+        }
       });
 
       gameLoop();
