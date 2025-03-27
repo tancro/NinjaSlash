@@ -248,10 +248,98 @@
 
       // Sistema di gestione audio
       const AudioManager = {
+        slashSoundURL: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/cut-OEi7bxq0z99c9CS9rbs55SsW8H7BY8.mpeg?bzpJ',
+        collisionSoundURL: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/crack-5e2GLZGiv9T5Pn7mbkuNmkkShHdYSM.mpeg?8Dzk',
+        introMusicURL: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/intro-V0REAtuG7BtkbzSJBnYTPz1ID9u6T4.mpeg?d8mA',
+        loopMusicURL: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/loop-7j3HNOa8LOWIAdhVMXq6aqQJzdz9hm.mpeg?pYj0',
+        slashSound: null,
+        collisionSound: null,
+        introMusic: null,
+        loopMusic: null,
+        bgMusicGainNode: null,
+
+        async loadSounds() {
+          try {
+            // Carica il suono del taglio
+            const slashResponse = await fetch(this.slashSoundURL);
+            const slashBuffer = await slashResponse.arrayBuffer();
+            this.slashSound = await audioContext.decodeAudioData(slashBuffer);
+
+            // Carica il suono della collisione
+            const collisionResponse = await fetch(this.collisionSoundURL);
+            const collisionBuffer = await collisionResponse.arrayBuffer();
+            this.collisionSound = await audioContext.decodeAudioData(collisionBuffer);
+
+            // Carica la musica intro
+            const introResponse = await fetch(this.introMusicURL);
+            const introBuffer = await introResponse.arrayBuffer();
+            this.introMusic = await audioContext.decodeAudioData(introBuffer);
+
+            // Carica la musica loop
+            const loopResponse = await fetch(this.loopMusicURL);
+            const loopBuffer = await loopResponse.arrayBuffer();
+            this.loopMusic = await audioContext.decodeAudioData(loopBuffer);
+
+            // Crea il nodo di guadagno per la musica di sottofondo
+            this.bgMusicGainNode = audioContext.createGain();
+            this.bgMusicGainNode.gain.value = 0.5; // Volume della musica al 50%
+            this.bgMusicGainNode.connect(audioContext.destination);
+          } catch (error) {
+            console.error('Errore nel caricamento dei suoni:', error);
+            this.slashSound = null;
+            this.collisionSound = null;
+            this.introMusic = null;
+            this.loopMusic = null;
+          }
+        },
+
+        startBackgroundMusic() {
+          if (isMuted || !audioContext || !this.introMusic || !this.loopMusic) return;
+
+          const introSource = audioContext.createBufferSource();
+          introSource.buffer = this.introMusic;
+          introSource.connect(this.bgMusicGainNode);
+          
+          // Quando l'intro finisce, avvia il loop se il gioco è ancora in corso
+          introSource.onended = () => {
+            if (gameState === 'playing') {
+              const loopSource = audioContext.createBufferSource();
+              loopSource.buffer = this.loopMusic;
+              loopSource.connect(this.bgMusicGainNode);
+              loopSource.loop = true;
+              loopSource.start(0);
+            }
+          };
+          
+          introSource.start(0);
+        },
+
+        stopBackgroundMusic() {
+          if (this.bgMusicGainNode) {
+            // Fade out graduale
+            const now = audioContext.currentTime;
+            this.bgMusicGainNode.gain.linearRampToValueAtTime(0, now + 0.5);
+            setTimeout(() => {
+              this.bgMusicGainNode.disconnect();
+              this.bgMusicGainNode = audioContext.createGain();
+              this.bgMusicGainNode.gain.value = 0.5;
+              this.bgMusicGainNode.connect(audioContext.destination);
+            }, 500);
+          }
+        },
+
         createSlashSound() {
           if (isMuted || !audioContext) return;
           
-          // Oscillatore principale per il suono swoosh
+          if (this.slashSound) {
+            const source = audioContext.createBufferSource();
+            source.buffer = this.slashSound;
+            source.connect(audioContext.destination);
+            source.start(0);
+            return;
+          }
+          
+          // Fallback al suono sintetizzato originale
           const oscillator = audioContext.createOscillator();
           const gainNode = audioContext.createGain();
           const filter = audioContext.createBiquadFilter();
@@ -313,39 +401,40 @@
           noiseSource.stop(audioContext.currentTime + 0.2);
         },
 
-        createGameOverSound() {
+        createCollisionSound() {
           if (isMuted || !audioContext) return;
           
-          // Primo oscillatore - suono principale
-          const osc1 = audioContext.createOscillator();
-          const gain1 = audioContext.createGain();
-          osc1.connect(gain1);
-          gain1.connect(audioContext.destination);
+          if (this.collisionSound) {
+            const source = audioContext.createBufferSource();
+            source.buffer = this.collisionSound;
+            source.connect(audioContext.destination);
+            
+            // Riproduci solo metà della durata del suono
+            const halfDuration = this.collisionSound.duration / 2;
+            source.start(0, 0, halfDuration);
+            return;
+          }
           
-          osc1.type = 'sawtooth';
-          osc1.frequency.setValueAtTime(220, audioContext.currentTime);
-          osc1.frequency.exponentialRampToValueAtTime(110, audioContext.currentTime + 0.2);
+          // Fallback per il suono di collisione
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
           
-          gain1.gain.setValueAtTime(0.3, audioContext.currentTime);
-          gain1.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+          oscillator.type = 'sawtooth';
+          oscillator.frequency.setValueAtTime(220, audioContext.currentTime);
+          oscillator.frequency.exponentialRampToValueAtTime(110, audioContext.currentTime + 0.1);
           
-          // Secondo oscillatore - suono di accompagnamento
-          const osc2 = audioContext.createOscillator();
-          const gain2 = audioContext.createGain();
-          osc2.connect(gain2);
-          gain2.connect(audioContext.destination);
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
           
-          osc2.type = 'square';
-          osc2.frequency.setValueAtTime(110, audioContext.currentTime);
-          osc2.frequency.exponentialRampToValueAtTime(55, audioContext.currentTime + 0.2);
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
           
-          gain2.gain.setValueAtTime(0.2, audioContext.currentTime);
-          gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-          
-          osc1.start(audioContext.currentTime);
-          osc2.start(audioContext.currentTime);
-          osc1.stop(audioContext.currentTime + 0.2);
-          osc2.stop(audioContext.currentTime + 0.2);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.1);
+        },
+
+        createGameOverSound() {
+          this.createCollisionSound();
         }
       };
 
@@ -946,12 +1035,21 @@
         energy = MAX_ENERGY;
         currentEnergyDecay = INITIAL_ENERGY_DECAY;
         
+        // Inizializza l'audio e carica i suoni
+        initAudio();
+        if (audioContext) {
+          AudioManager.loadSounds().then(() => {
+            AudioManager.startBackgroundMusic();
+          });
+        }
+        
         initializeBamboo();
         window.FarcadeSDK.singlePlayer.actions.ready();
       }
 
       function gameOver() {
         gameState = 'gameover';
+        AudioManager.stopBackgroundMusic();
         window.FarcadeSDK.singlePlayer.actions.gameOver({ score: score });
       }
 
@@ -993,11 +1091,21 @@
         energy = MAX_ENERGY;
         currentEnergyDecay = INITIAL_ENERGY_DECAY;
         
+        // Riavvia la musica
+        if (audioContext) {
+          AudioManager.startBackgroundMusic();
+        }
+        
         initializeBamboo();
       });
 
       window.FarcadeSDK.on('toggle_mute', (data) => {
         isMuted = data.muted;
+        if (isMuted) {
+          AudioManager.stopBackgroundMusic();
+        } else if (gameState === 'playing') {
+          AudioManager.startBackgroundMusic();
+        }
         console.log('Audio ' + (isMuted ? 'muted' : 'unmuted'));
       });
 
