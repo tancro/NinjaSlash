@@ -601,12 +601,12 @@
           }
           
           // Aumentiamo la probabilità di rami e riduciamo la distanza di sicurezza
-          if (!lastBranchInfo || lastBranchInfo.safeDistance >= 1) {  // Ridotto da 2 a 1
-            this.hasBranch = Math.random() < 0.7;  // Aumentato da 0.6 a 0.7
+          if (!lastBranchInfo || lastBranchInfo.safeDistance >= 2) {  // Aumentato a 2 per sicurezza
+            this.hasBranch = Math.random() < 0.6;  // Ridotto a 0.6 per bilanciare
             if (this.hasBranch) {
               // Pattern più complesso per il lato del ramo
-              if (lastBranchInfo && lastBranchInfo.safeDistance === 1) {
-                // Se c'è solo 1 sezione di distanza, alterna sempre il lato
+              if (lastBranchInfo && lastBranchInfo.safeDistance === 2) {
+                // Se c'è solo 2 sezioni di distanza, alterna sempre il lato
                 this.branchSide = lastBranchInfo.side === 'left' ? 'right' : 'left';
               } else if (score > 20) {  // Pattern più difficile dopo 20 punti
                 // 30% di probabilità di mettere il ramo sullo stesso lato
@@ -738,14 +738,12 @@
         bambooSections = [];
         let lastBranchInfo = null;
         
-        // Aggiungi le prime 3 sezioni senza rami per un inizio sicuro
+        // Aggiungi la prima sezione senza rami per un inizio sicuro
         const baseSection = new BambooSection(BAMBOO_BASE_Y, null, true);
-        const secondSection = new BambooSection(BAMBOO_BASE_Y - BAMBOO_SECTION_HEIGHT, null, true);
-        const thirdSection = new BambooSection(BAMBOO_BASE_Y - (BAMBOO_SECTION_HEIGHT * 2), null, true);
-        bambooSections.push(baseSection, secondSection, thirdSection);
+        bambooSections.push(baseSection);
         
         // Aggiungi le sezioni rimanenti con possibili rami
-        for (let i = 3; i < Math.ceil(canvas.height / BAMBOO_SECTION_HEIGHT); i++) {
+        for (let i = 1; i < Math.ceil(canvas.height / BAMBOO_SECTION_HEIGHT); i++) {
           const y = BAMBOO_BASE_Y - (i * BAMBOO_SECTION_HEIGHT);
           const section = new BambooSection(y, lastBranchInfo);
           if (section.hasBranch) {
