@@ -932,24 +932,27 @@
           const progress = (cycleTime - DAY_DURATION) / TRANSITION_DURATION;
           return { 
             phase: 'sunset', 
-            intensity: easeInOutCubic(progress),
-            // Aggiungiamo un secondo valore per la transizione verso la notte
-            nightProgress: easeInOutCubic(Math.max(0, (progress - 0.5) * 2))
+            intensity: easeInOutQuad(progress),
+            nightProgress: easeInOutQuad(progress)
           };
         }
         
         // Notte: DAY_DURATION + TRANSITION_DURATION -> DAY_DURATION + TRANSITION_DURATION + NIGHT_DURATION
         if (cycleTime < DAY_DURATION + TRANSITION_DURATION + NIGHT_DURATION) {
-          return { phase: 'night', intensity: 1 };
+          const progress = (cycleTime - (DAY_DURATION + TRANSITION_DURATION)) / NIGHT_DURATION;
+          return { 
+            phase: 'night', 
+            intensity: 1 - easeInOutQuad(progress),
+            nightProgress: 1
+          };
         }
         
         // Alba: Resto del ciclo
         const progress = (cycleTime - (DAY_DURATION + TRANSITION_DURATION + NIGHT_DURATION)) / TRANSITION_DURATION;
         return { 
           phase: 'sunrise', 
-          intensity: 1 - easeInOutCubic(progress),
-          // Aggiungiamo un secondo valore per la transizione dalla notte
-          nightProgress: 1 - easeInOutCubic(Math.min(1, progress * 2))
+          intensity: easeInOutQuad(progress),
+          nightProgress: 1 - easeInOutQuad(progress)
         };
       }
 
@@ -1056,7 +1059,7 @@
             const size = Math.random() * 2 + 1;
             
             // Nuovo calcolo della pulsazione
-            const pulseOpacity = 0.5 + 0.5 * Math.sin(Date.now() * (Math.PI / 1000) + i); // Pulsazione di un secondo
+            const pulseOpacity = 0.5 + 0.5 * Math.sin(Date.now() * (Math.PI / 5000) + i); // Pulsazione di un secondo
             const starOpacity = moonOpacity * pulseOpacity;
             
             ctx.fillStyle = `rgba(255, 255, 255, ${starOpacity})`;
@@ -1091,7 +1094,7 @@
         // Modifichiamo i colori in base al momento del giorno
         const isDark = timeOfDay > 0.25 && timeOfDay < 0.75;
         
-        ctx.fillStyle = isDark ? '#FFFFFF' : '#000000';  // Testo bianco di notte
+        ctx.fillStyle = '#000000'; 
         ctx.font = 'bold 24px "Press Start 2P"';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
