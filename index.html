@@ -1143,11 +1143,11 @@
         
         // Disegna lo sfondo
         if (backgroundImageLoaded) {
-            ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
-        } else {
+            ctx.drawImage(backgroundImage, 0, 0, canvas.width, FLOOR_Y);
+          } else {
             ctx.fillStyle = '#87CEEB';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
+            ctx.fillRect(0, 0, canvas.width, FLOOR_Y);
+          }
         
         // Disegna il pavimento
         drawFloor();
