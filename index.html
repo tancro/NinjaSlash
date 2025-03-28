@@ -558,8 +558,9 @@
       
       // Costanti per la barra di energia
       const MAX_ENERGY = 48;
-      const INITIAL_ENERGY_DECAY = 0.2;  // Decay più lento per i primi 10 bambù
-      const NORMAL_ENERGY_DECAY = 0.4;   // Decay normale dopo i primi 10
+      const INITIAL_ENERGY_DECAY = 0.2;    // Per i primi 10 punti
+      const MEDIUM_ENERGY_DECAY = 0.4;     // Da 11 a 75 punti
+      const HARD_ENERGY_DECAY = 0.6;       // Oltre 75 punti
       const ENERGY_GAIN = 12;
       
       // Calcola le posizioni verticali
@@ -612,21 +613,36 @@
             return;
           }
           
-          // Aumentiamo la probabilità di rami e riduciamo la distanza di sicurezza
-          if (!lastBranchInfo || lastBranchInfo.safeDistance >= 2) {  // Aumentato a 2 per sicurezza
-            this.hasBranch = Math.random() < 0.6;  // Ridotto a 0.6 per bilanciare
+          // Aumentiamo la probabilità di rami in base al punteggio
+          if (!lastBranchInfo || lastBranchInfo.safeDistance >= 1) {
+            let branchProbability;
+            if (score <= 10) {
+              branchProbability = 0.6; // Probabilità iniziale
+            } else if (score <= 75) {
+              branchProbability = 0.8; // Probabilità media
+            } else {
+              branchProbability = 0.9; // Probabilità alta
+            }
+            
+            this.hasBranch = Math.random() < branchProbability;
+            
             if (this.hasBranch) {
               // Pattern più complesso per il lato del ramo
-              if (lastBranchInfo && lastBranchInfo.safeDistance === 2) {
+              if (lastBranchInfo && lastBranchInfo.safeDistance === 1) {
                 // Se c'è solo 2 sezioni di distanza, alterna sempre il lato
                 this.branchSide = lastBranchInfo.side === 'left' ? 'right' : 'left';
-              } else if (score > 20) {  // Pattern più difficile dopo 20 punti
-                // 30% di probabilità di mettere il ramo sullo stesso lato
+              } else if (score > 75) {
+                // Pattern più difficile dopo 75 punti: 50% di probabilità di mettere il ramo sullo stesso lato
+                this.branchSide = Math.random() < 0.5 ? 
+                  (lastBranchInfo ? lastBranchInfo.side : (Math.random() < 0.5 ? 'left' : 'right')) :
+                  (lastBranchInfo ? (lastBranchInfo.side === 'left' ? 'right' : 'left') : (Math.random() < 0.5 ? 'left' : 'right'));
+              } else if (score > 10) {
+                // Pattern medio dopo 10 punti: 30% di probabilità di mettere il ramo sullo stesso lato
                 this.branchSide = Math.random() < 0.3 ? 
                   (lastBranchInfo ? lastBranchInfo.side : (Math.random() < 0.5 ? 'left' : 'right')) :
                   (lastBranchInfo ? (lastBranchInfo.side === 'left' ? 'right' : 'left') : (Math.random() < 0.5 ? 'left' : 'right'));
               } else {
-                // Pattern normale per i primi 20 punti
+                // Pattern normale per i primi 10 punti
                 this.branchSide = lastBranchInfo ? 
                   (lastBranchInfo.side === 'left' ? 'right' : 'left') : 
                   (Math.random() < 0.5 ? 'left' : 'right');
@@ -1141,13 +1157,13 @@
         // Applica l'effetto shake
         ctx.translate(shakeOffsetX, shakeOffsetY);
         
-        // Disegna lo sfondo
-        if (backgroundImageLoaded) {
-            ctx.drawImage(backgroundImage, 0, 0, canvas.width, FLOOR_Y);
-          } else {
-            ctx.fillStyle = '#87CEEB';
-            ctx.fillRect(0, 0, canvas.width, FLOOR_Y);
-          }
+       // Disegna lo sfondo
+         if (backgroundImageLoaded) {
+           ctx.drawImage(backgroundImage, 0, 0, canvas.width, FLOOR_Y);
+         } else {
+           ctx.fillStyle = '#87CEEB';
+           ctx.fillRect(0, 0, canvas.width, FLOOR_Y);
+         }
         
         // Disegna il pavimento
         drawFloor();
@@ -1177,14 +1193,21 @@
         updateShake();
         
         // Aggiorna il decay dell'energia in base al punteggio
-        currentEnergyDecay = score < 10 ? INITIAL_ENERGY_DECAY : NORMAL_ENERGY_DECAY;
+        if (score <= 10) {
+            currentEnergyDecay = INITIAL_ENERGY_DECAY;
+        } else if (score <= 75) {
+            currentEnergyDecay = MEDIUM_ENERGY_DECAY;
+        } else {
+            currentEnergyDecay = HARD_ENERGY_DECAY;
+        }
+        
         energy = Math.max(0, energy - currentEnergyDecay);
         
         if (energy <= 0) {
-          startShake(20);
-          AudioManager.createGameOverSound();
-          setTimeout(() => gameOver(), 100);
-          return;
+            startShake(20);
+            AudioManager.createGameOverSound();
+            setTimeout(() => gameOver(), 100);
+            return;
         }
 
         // Aggiorna il timer di attacco
