@@ -585,6 +585,8 @@
           this.rotation = 0;
           this.offsetX = 0;
           this.cutFromSide = null;
+          this.isAnimatingBranch = false;
+          this.branchAnimationProgress = 0;
           
           if (forceNoBranch) {
             this.hasBranch = false;
@@ -671,16 +673,25 @@
             }
           }
 
-          // Disegna la foglia se presente
+          // Disegna il ramo con animazione se necessario
           if (this.hasBranch) {
-            const branchX = this.branchSide === 'left' ? 
-              x - BRANCH_WIDTH + 12 :  // Aggiunto +12 per avvicinare al tronco
-              x + BAMBOO_WIDTH - 12;   // Sottratto -12 per avvicinare al tronco
-              
-            const branchY = y + (BAMBOO_SECTION_HEIGHT - BRANCH_HEIGHT) / 2;
+            const baseX = x + (this.branchSide === 'left' ? -BRANCH_WIDTH + 12 : BAMBOO_WIDTH - 12);
+            const baseY = y + (BAMBOO_SECTION_HEIGHT - BRANCH_HEIGHT) / 2;
+            
+            let branchX = baseX;
+            let branchY = baseY;
+            
+            // Applica l'animazione del ramo se attiva
+            if (this.isAnimatingBranch) {
+              this.branchAnimationProgress += 0.2; // Velocità dell'animazione
+              const targetX = this.branchSide === 'left' ? 
+                baseX + BRANCH_WIDTH + 30 : 
+                baseX - 30;
+              const progress = Math.min(1, this.branchAnimationProgress / 15);
+              branchX = baseX + (targetX - baseX) * progress;
+            }
             
             if (leafImageLoaded) {
-              // Ruota la foglia in base al lato
               ctx.save();
               if (this.branchSide === 'left') {
                 ctx.translate(branchX + BRANCH_WIDTH, branchY);
@@ -691,7 +702,6 @@
               }
               ctx.restore();
             } else {
-              // Fallback se l'immagine non è caricata
               ctx.fillStyle = '#228B22';
               ctx.strokeStyle = '#006400';
               ctx.fillRect(branchX, branchY, BRANCH_WIDTH, BRANCH_HEIGHT);
@@ -734,11 +744,14 @@
         bambooSections = [];
         let lastBranchInfo = null;
         
+        // Aggiungi le prime 3 sezioni senza rami per un inizio sicuro
         const baseSection = new BambooSection(BAMBOO_BASE_Y, null, true);
         const secondSection = new BambooSection(BAMBOO_BASE_Y - BAMBOO_SECTION_HEIGHT, null, true);
-        bambooSections.push(baseSection, secondSection);
+        const thirdSection = new BambooSection(BAMBOO_BASE_Y - (BAMBOO_SECTION_HEIGHT * 2), null, true);
+        bambooSections.push(baseSection, secondSection, thirdSection);
         
-        for (let i = 2; i < Math.ceil(canvas.height / BAMBOO_SECTION_HEIGHT); i++) {
+        // Aggiungi le sezioni rimanenti con possibili rami
+        for (let i = 3; i < Math.ceil(canvas.height / BAMBOO_SECTION_HEIGHT); i++) {
           const y = BAMBOO_BASE_Y - (i * BAMBOO_SECTION_HEIGHT);
           const section = new BambooSection(y, lastBranchInfo);
           if (section.hasBranch) {
@@ -992,54 +1005,92 @@
         });
       }
 
+      function checkCollisions(side) {
+        if (gameState !== 'playing') return false;
+        
+        const sectionIndex = bambooSections.findIndex(section => section.y === BAMBOO_BASE_Y);
+        if (sectionIndex < 0) return false;
+        
+        const currentSection = bambooSections[sectionIndex];
+        const nextSection = bambooSections[sectionIndex - 1];
+        
+        // Collisione con il ramo corrente
+        if (currentSection.hasBranch && currentSection.branchSide === side) {
+          handleCollision();
+          return true;
+        }
+        
+        // Collisione con il prossimo ramo (solo se il bambù corrente viene tagliato)
+        if (nextSection && nextSection.hasBranch && nextSection.branchSide === side) {
+          return false; // Non è ancora una collisione, ma lo diventerà dopo il taglio
+        }
+        
+        return false;
+      }
+
+      function handleCollision() {
+        startShake(20);
+        document.querySelector('.controls').style.pointerEvents = 'none';
+        AudioManager.createGameOverSound();
+        
+        // Trova la sezione con il ramo che ha causato la collisione
+        const sectionIndex = bambooSections.findIndex(section => section.y === BAMBOO_BASE_Y);
+        const currentSection = bambooSections[sectionIndex];
+        
+        // Animazione del ramo che colpisce il ninja
+        let animationProgress = 0;
+        const animationDuration = 15;
+        const branchAnimationInterval = setInterval(() => {
+          animationProgress++;
+          
+          if (animationProgress >= animationDuration) {
+            clearInterval(branchAnimationInterval);
+            gameOver();
+          }
+        }, 16); // Circa 60fps
+        
+        // Aggiungiamo una proprietà per l'animazione del ramo
+        currentSection.branchAnimationProgress = 0;
+        currentSection.isAnimatingBranch = true;
+      }
+
       function slash(side) {
         initAudio();
         
         if (gameState !== 'playing') return;
         
         const sectionIndex = bambooSections.findIndex(section => section.y === BAMBOO_BASE_Y);
+        if (sectionIndex < 0) return;
         
-        if (sectionIndex >= 0) {
-          const currentSection = bambooSections[sectionIndex];
-          const nextSection = bambooSections[sectionIndex - 1];
+        const currentSection = bambooSections[sectionIndex];
+        const nextSection = bambooSections[sectionIndex - 1];
+        
+        ninjaPosition = side;
+        isAttacking = true;
+        attackTimer = 0;
+        
+        AudioManager.createSlashSound();
+        
+        // Controlla collisione immediata
+        if (checkCollisions(side)) return;
+        
+        if (currentSection.intact) {
+          currentSection.intact = false;
+          currentSection.cutFromSide = side;
+          score++;
+          energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN);
           
-          ninjaPosition = side;
-          isAttacking = true;
-          attackTimer = 0;
-          
-          AudioManager.createSlashSound();
-          
-          if (currentSection.hasBranch && currentSection.branchSide === side) {
-            startShake(20); // Attiva shake alla collisione
-            // Disattiva immediatamente i controlli
-            document.querySelector('.controls').style.pointerEvents = 'none';
-            AudioManager.createGameOverSound();
-            setTimeout(() => gameOver(), 350);
-            return;
-          }
-          
-          if (currentSection.intact) {
-            currentSection.intact = false;
-            currentSection.cutFromSide = side;
-            score++;
-            
-            energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN);
-            
-            setTimeout(() => {
-              if (gameState === 'playing') {
-                if (nextSection && nextSection.hasBranch && nextSection.branchSide === ninjaPosition) {
-                  startShake(20);
-                  // Disattiva immediatamente i controlli
-                  document.querySelector('.controls').style.pointerEvents = 'none';
-                  AudioManager.createGameOverSound();
-                  setTimeout(() => gameOver(), 350);
-                  return;
-                }
-                updateBamboo();
-                window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+          // Controlla collisione con il prossimo ramo dopo il taglio
+          setTimeout(() => {
+            if (gameState === 'playing') {
+              if (nextSection && nextSection.hasBranch && nextSection.branchSide === side) {
+                handleCollision();
+                return;
               }
-            }, 100);
-          }
+              updateBamboo();
+              window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+            }
+          }, 100);
         }
       }
 
