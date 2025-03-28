@@ -1049,14 +1049,16 @@
           ctx.arc(moonX, moonY, 31, 0, Math.PI * 2);
           ctx.stroke();
           
-          // Aggiungi stelle con effetto twinkle più pronunciato
-          for (let i = 0; i < 50; i++) {
+          // Aggiungi stelle con effetto di pulsazione lenta
+          for (let i = 0; i < 1; i++) { // Ridotto a 5 stelle
             const x = Math.random() * canvas.width;
             const y = Math.random() * (FLOOR_Y - 50);
             const size = Math.random() * 2 + 1;
-            const twinkle = 0.3 + Math.sin(Date.now() * 0.003 + i * 0.5) * 0.2;
             
-            const starOpacity = moonOpacity * twinkle;
+            // Nuovo calcolo della pulsazione
+            const pulseOpacity = 0.5 + 0.5 * Math.sin(Date.now() * (Math.PI / 1000) + i); // Pulsazione di un secondo
+            const starOpacity = moonOpacity * pulseOpacity;
+            
             ctx.fillStyle = `rgba(255, 255, 255, ${starOpacity})`;
             ctx.beginPath();
             ctx.arc(x, y, size, 0, Math.PI * 2);
@@ -1131,89 +1133,30 @@
       }
 
       function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
         ctx.save();
+        
+        // Applica l'effetto shake
         ctx.translate(shakeOffsetX, shakeOffsetY);
         
         // Disegna lo sfondo
         if (backgroundImageLoaded) {
-          ctx.drawImage(backgroundImage, 0, 0, canvas.width, FLOOR_Y);
+            ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+        } else {
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
         
+        // Disegna il pavimento
         drawFloor();
+        
+        // Disegna il bambù
         drawBamboo();
+        
+        // Disegna il ninja
         drawNinja();
-        
-        // Applica l'overlay giorno/notte con blend mode multiply
-        ctx.globalCompositeOperation = 'multiply';
+
+        // Applica l'overlay giorno/notte
         drawDayNightOverlay();
-        
-        // Ripristina il blend mode normale per gli effetti luminosi
-        ctx.globalCompositeOperation = 'source-over';
-        
-        // Disegna gli effetti luminosi (luna e stelle)
-        const { phase, intensity, nightProgress } = getDayNightPhase();
-        if (phase === 'night' || phase === 'sunset' || phase === 'sunrise') {
-          const moonOpacity = phase === 'night' ? intensity : 
-                            phase === 'sunset' ? easeInOutCubic(nightProgress || 0) :
-                            phase === 'sunrise' ? easeInOutCubic(nightProgress || 0) : 0;
-          
-          // Effetto luna con glow più pronunciato
-          const moonX = canvas.width * 0.8;
-          const moonY = canvas.height * 0.2;
-          
-          // Glow della luna
-          const moonGlow = ctx.createRadialGradient(
-            moonX, moonY, 0,
-            moonX, moonY, 200
-          );
-          moonGlow.addColorStop(0, `rgba(200, 200, 255, ${0.3 * moonOpacity})`);
-          moonGlow.addColorStop(0.5, `rgba(200, 200, 255, ${0.1 * moonOpacity})`);
-          moonGlow.addColorStop(1, 'rgba(200, 200, 255, 0)');
-          ctx.fillStyle = moonGlow;
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          
-          // Luna
-          ctx.beginPath();
-          ctx.fillStyle = `rgba(255, 255, 230, ${moonOpacity})`;
-          ctx.arc(moonX, moonY, 30, 0, Math.PI * 2);
-          ctx.fill();
-          
-          // Bordo luminoso della luna
-          ctx.beginPath();
-          ctx.strokeStyle = `rgba(255, 255, 255, ${moonOpacity * 0.5})`;
-          ctx.lineWidth = 2;
-          ctx.arc(moonX, moonY, 31, 0, Math.PI * 2);
-          ctx.stroke();
-          
-          // Stelle con effetto twinkle
-          for (let i = 0; i < 50; i++) {
-            const x = Math.random() * canvas.width;
-            const y = Math.random() * (FLOOR_Y - 50);
-            const size = Math.random() * 2 + 1;
-            const twinkle = 0.3 + Math.sin(Date.now() * 0.003 + i * 0.5) * 0.2;
-            
-            const starOpacity = moonOpacity * twinkle;
-            
-            // Glow delle stelle
-            if (size > 2) {
-              const starGlow = ctx.createRadialGradient(x, y, 0, x, y, size * 3);
-              starGlow.addColorStop(0, `rgba(255, 255, 255, ${starOpacity * 0.3})`);
-              starGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
-              ctx.fillStyle = starGlow;
-              ctx.beginPath();
-              ctx.arc(x, y, size * 3, 0, Math.PI * 2);
-              ctx.fill();
-            }
-            
-            // Stella
-            ctx.fillStyle = `rgba(255, 255, 255, ${starOpacity})`;
-            ctx.beginPath();
-            ctx.arc(x, y, size, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
         
         // Disegna il tabellone del punteggio sopra tutto
         drawScoreBoard();
@@ -1355,7 +1298,6 @@
         score = 0;
         speed = 2;
         ninjaPosition = 'left';
-        isHurt = false; // Reset dello stato hurt
         startScreen.style.display = 'none';
         document.querySelector('.controls').style.pointerEvents = 'auto';
         energy = MAX_ENERGY;
@@ -1412,7 +1354,6 @@
         score = 0;
         speed = 2;
         ninjaPosition = 'left';
-        isHurt = false; // Reset dello stato hurt
         startScreen.style.display = 'none';
         document.querySelector('.controls').style.pointerEvents = 'auto';
         energy = MAX_ENERGY;
