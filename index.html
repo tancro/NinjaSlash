@@ -244,6 +244,14 @@
       let shakeDecay = 0.9;
       let shakeOffsetX = 0;
       let shakeOffsetY = 0;
+      
+      // Variabili per il ciclo giorno/notte
+      const DAY_DURATION = 20000; // 20 secondi di giorno
+      const NIGHT_DURATION = 15000; // 15 secondi di notte
+      const TRANSITION_DURATION = 5000; // 5 secondi per le transizioni
+      const TOTAL_CYCLE_DURATION = DAY_DURATION + NIGHT_DURATION + (TRANSITION_DURATION * 2);
+      let cycleStartTime = 0;
+      let timeOfDay = 0;
 
       // Funzione per inizializzare l'audio
       function initAudio() {
@@ -585,6 +593,10 @@
         return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
       }
 
+      function easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      }
+
       class BambooSection {
         constructor(y, lastBranchInfo = null, forceNoBranch = false) {
           this.y = y;
@@ -904,6 +916,166 @@
         ctx.fillRect(0, FLOOR_Y - 10, canvas.width, 10);
       }
 
+      function getDayNightPhase() {
+        if (!cycleStartTime) return { phase: 'day', intensity: 0 };
+        
+        const elapsedTime = Date.now() - cycleStartTime;
+        const cycleTime = elapsedTime % TOTAL_CYCLE_DURATION;
+        
+        // Giorno: 0 -> DAY_DURATION
+        if (cycleTime < DAY_DURATION) {
+          return { phase: 'day', intensity: 0 };
+        }
+        
+        // Tramonto: DAY_DURATION -> DAY_DURATION + TRANSITION_DURATION
+        if (cycleTime < DAY_DURATION + TRANSITION_DURATION) {
+          const progress = (cycleTime - DAY_DURATION) / TRANSITION_DURATION;
+          return { 
+            phase: 'sunset', 
+            intensity: easeInOutCubic(progress),
+            // Aggiungiamo un secondo valore per la transizione verso la notte
+            nightProgress: easeInOutCubic(Math.max(0, (progress - 0.5) * 2))
+          };
+        }
+        
+        // Notte: DAY_DURATION + TRANSITION_DURATION -> DAY_DURATION + TRANSITION_DURATION + NIGHT_DURATION
+        if (cycleTime < DAY_DURATION + TRANSITION_DURATION + NIGHT_DURATION) {
+          return { phase: 'night', intensity: 1 };
+        }
+        
+        // Alba: Resto del ciclo
+        const progress = (cycleTime - (DAY_DURATION + TRANSITION_DURATION + NIGHT_DURATION)) / TRANSITION_DURATION;
+        return { 
+          phase: 'sunrise', 
+          intensity: 1 - easeInOutCubic(progress),
+          // Aggiungiamo un secondo valore per la transizione dalla notte
+          nightProgress: 1 - easeInOutCubic(Math.min(1, progress * 2))
+        };
+      }
+
+      function drawDayNightOverlay() {
+        const { phase, intensity, nightProgress } = getDayNightPhase();
+        
+        // Creiamo un gradiente per il cielo
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        
+        if (phase === 'night') {
+          // Notte piena
+          gradient.addColorStop(0, `rgba(0, 0, 50, ${intensity * 0.7})`);
+          gradient.addColorStop(0.5, `rgba(0, 0, 35, ${intensity * 0.7})`);
+          gradient.addColorStop(1, `rgba(0, 0, 20, ${intensity * 0.7})`);
+        } else if (phase === 'sunset') {
+          // Tramonto - miscela tra colori del tramonto e della notte
+          const sunsetColors = {
+            top: [255, 150, 50],
+            middle: [255, 100, 50],
+            bottom: [150, 50, 100]
+          };
+          const nightColors = {
+            top: [0, 0, 50],
+            middle: [0, 0, 35],
+            bottom: [0, 0, 20]
+          };
+          
+          const blendColors = (color1, color2, progress) => {
+            return color1.map((c, i) => Math.round(c * (1 - progress) + color2[i] * progress));
+          };
+          
+          const topColor = blendColors(sunsetColors.top, nightColors.top, nightProgress || 0);
+          const middleColor = blendColors(sunsetColors.middle, nightColors.middle, nightProgress || 0);
+          const bottomColor = blendColors(sunsetColors.bottom, nightColors.bottom, nightProgress || 0);
+          
+          gradient.addColorStop(0, `rgba(${topColor.join(',')}, ${intensity * 0.6})`);
+          gradient.addColorStop(0.5, `rgba(${middleColor.join(',')}, ${intensity * 0.5})`);
+          gradient.addColorStop(1, `rgba(${bottomColor.join(',')}, ${intensity * 0.4})`);
+        } else if (phase === 'sunrise') {
+          // Alba - miscela tra colori della notte e dell'alba
+          const sunriseColors = {
+            top: [255, 200, 150],
+            middle: [255, 180, 100],
+            bottom: [200, 150, 100]
+          };
+          const nightColors = {
+            top: [0, 0, 50],
+            middle: [0, 0, 35],
+            bottom: [0, 0, 20]
+          };
+          
+          const blendColors = (color1, color2, progress) => {
+            return color1.map((c, i) => Math.round(c * (1 - progress) + color2[i] * progress));
+          };
+          
+          const topColor = blendColors(nightColors.top, sunriseColors.top, 1 - (nightProgress || 0));
+          const middleColor = blendColors(nightColors.middle, sunriseColors.middle, 1 - (nightProgress || 0));
+          const bottomColor = blendColors(nightColors.bottom, sunriseColors.bottom, 1 - (nightProgress || 0));
+          
+          gradient.addColorStop(0, `rgba(${topColor.join(',')}, ${intensity * 0.6})`);
+          gradient.addColorStop(0.5, `rgba(${middleColor.join(',')}, ${intensity * 0.5})`);
+          gradient.addColorStop(1, `rgba(${bottomColor.join(',')}, ${intensity * 0.4})`);
+        }
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Effetti luna e stelle solo durante la notte e le transizioni
+        if (phase === 'night' || phase === 'sunset' || phase === 'sunrise') {
+          const moonOpacity = phase === 'night' ? intensity : 
+                            phase === 'sunset' ? easeInOutCubic(nightProgress || 0) :
+                            phase === 'sunrise' ? easeInOutCubic(nightProgress || 0) : 0;
+          
+          // Effetto luna con glow più pronunciato
+          const moonX = canvas.width * 0.8;
+          const moonY = canvas.height * 0.2;
+          const moonGlow = ctx.createRadialGradient(
+            moonX, moonY, 0,
+            moonX, moonY, 200
+          );
+          moonGlow.addColorStop(0, `rgba(200, 200, 255, ${0.3 * moonOpacity})`);
+          moonGlow.addColorStop(0.5, `rgba(200, 200, 255, ${0.1 * moonOpacity})`);
+          moonGlow.addColorStop(1, 'rgba(200, 200, 255, 0)');
+          ctx.fillStyle = moonGlow;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Disegna la luna con un bordo luminoso
+          ctx.beginPath();
+          ctx.fillStyle = `rgba(255, 255, 230, ${moonOpacity})`;
+          ctx.arc(moonX, moonY, 30, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Bordo luminoso della luna
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(255, 255, 255, ${moonOpacity * 0.5})`;
+          ctx.lineWidth = 2;
+          ctx.arc(moonX, moonY, 31, 0, Math.PI * 2);
+          ctx.stroke();
+          
+          // Aggiungi stelle con effetto twinkle più pronunciato
+          for (let i = 0; i < 50; i++) {
+            const x = Math.random() * canvas.width;
+            const y = Math.random() * (FLOOR_Y - 50);
+            const size = Math.random() * 2 + 1;
+            const twinkle = 0.3 + Math.sin(Date.now() * 0.003 + i * 0.5) * 0.2;
+            
+            const starOpacity = moonOpacity * twinkle;
+            ctx.fillStyle = `rgba(255, 255, 255, ${starOpacity})`;
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Aggiungi un glow alle stelle più grandi
+            if (size > 2) {
+              const starGlow = ctx.createRadialGradient(x, y, 0, x, y, size * 3);
+              starGlow.addColorStop(0, `rgba(255, 255, 255, ${starOpacity * 0.3})`);
+              starGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+              ctx.fillStyle = starGlow;
+              ctx.beginPath();
+              ctx.arc(x, y, size * 3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        }
+      }
+
       function drawScoreBoard() {
         const boardWidth = canvas.width * 0.4;
         const boardHeight = 100;
@@ -914,14 +1086,16 @@
           ctx.drawImage(signImage, x, y, boardWidth, boardHeight);
         }
         
-        // Punteggio
-        ctx.fillStyle = '#000000';  // Testo nero
-        ctx.font = 'bold 24px "Press Start 2P"';  // Dimensione ridotta per il nuovo font
+        // Modifichiamo i colori in base al momento del giorno
+        const isDark = timeOfDay > 0.25 && timeOfDay < 0.75;
+        
+        ctx.fillStyle = isDark ? '#FFFFFF' : '#000000';  // Testo bianco di notte
+        ctx.font = 'bold 24px "Press Start 2P"';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(`${score}`, x + boardWidth/2, y + 45);
         
-        // Barra energia - aggiunto 4px di spazio dal punteggio (da y + 57 a y + 59)
+        // Barra energia
         const barWidth = boardWidth * 0.3;
         const barHeight = 15;
         const barX = x + (boardWidth - barWidth) / 2;
@@ -930,22 +1104,26 @@
         ctx.fillStyle = '#333';
         ctx.fillRect(barX, barY, barWidth, barHeight);
         
-        ctx.strokeStyle = '#000';  // Bordo nero
+        ctx.strokeStyle = isDark ? '#FFFFFF' : '#000000';
         ctx.lineWidth = 2;
         ctx.strokeRect(barX, barY, barWidth, barHeight);
         
         const fillWidth = (energy / MAX_ENERGY) * barWidth;
         const gradient = ctx.createLinearGradient(barX, barY, barX + fillWidth, barY);
         
+        const energyColors = isDark ? 
+          ['#ff4400', '#ffaa00', '#44ff00'] :  // Colori notte
+          ['#ff0000', '#ffff00', '#00ff00'];   // Colori giorno
+        
         if (energy < 30) {
-          gradient.addColorStop(0, '#ff0000');
-          gradient.addColorStop(1, '#ff4400');
+          gradient.addColorStop(0, energyColors[0]);
+          gradient.addColorStop(1, energyColors[0]);
         } else if (energy < 60) {
-          gradient.addColorStop(0, '#ffff00');
-          gradient.addColorStop(1, '#ffaa00');
+          gradient.addColorStop(0, energyColors[1]);
+          gradient.addColorStop(1, energyColors[1]);
         } else {
-          gradient.addColorStop(0, '#00ff00');
-          gradient.addColorStop(1, '#44ff00');
+          gradient.addColorStop(0, energyColors[2]);
+          gradient.addColorStop(1, energyColors[2]);
         }
         
         ctx.fillStyle = gradient;
@@ -955,21 +1133,89 @@
       function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Applica l'effetto shake
         ctx.save();
         ctx.translate(shakeOffsetX, shakeOffsetY);
         
         // Disegna lo sfondo
         if (backgroundImageLoaded) {
           ctx.drawImage(backgroundImage, 0, 0, canvas.width, FLOOR_Y);
-        } else {
-          ctx.fillStyle = '#87CEEB';
-          ctx.fillRect(0, 0, canvas.width, FLOOR_Y);
         }
         
         drawFloor();
         drawBamboo();
         drawNinja();
+        
+        // Applica l'overlay giorno/notte con blend mode multiply
+        ctx.globalCompositeOperation = 'multiply';
+        drawDayNightOverlay();
+        
+        // Ripristina il blend mode normale per gli effetti luminosi
+        ctx.globalCompositeOperation = 'source-over';
+        
+        // Disegna gli effetti luminosi (luna e stelle)
+        const { phase, intensity, nightProgress } = getDayNightPhase();
+        if (phase === 'night' || phase === 'sunset' || phase === 'sunrise') {
+          const moonOpacity = phase === 'night' ? intensity : 
+                            phase === 'sunset' ? easeInOutCubic(nightProgress || 0) :
+                            phase === 'sunrise' ? easeInOutCubic(nightProgress || 0) : 0;
+          
+          // Effetto luna con glow più pronunciato
+          const moonX = canvas.width * 0.8;
+          const moonY = canvas.height * 0.2;
+          
+          // Glow della luna
+          const moonGlow = ctx.createRadialGradient(
+            moonX, moonY, 0,
+            moonX, moonY, 200
+          );
+          moonGlow.addColorStop(0, `rgba(200, 200, 255, ${0.3 * moonOpacity})`);
+          moonGlow.addColorStop(0.5, `rgba(200, 200, 255, ${0.1 * moonOpacity})`);
+          moonGlow.addColorStop(1, 'rgba(200, 200, 255, 0)');
+          ctx.fillStyle = moonGlow;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Luna
+          ctx.beginPath();
+          ctx.fillStyle = `rgba(255, 255, 230, ${moonOpacity})`;
+          ctx.arc(moonX, moonY, 30, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Bordo luminoso della luna
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(255, 255, 255, ${moonOpacity * 0.5})`;
+          ctx.lineWidth = 2;
+          ctx.arc(moonX, moonY, 31, 0, Math.PI * 2);
+          ctx.stroke();
+          
+          // Stelle con effetto twinkle
+          for (let i = 0; i < 50; i++) {
+            const x = Math.random() * canvas.width;
+            const y = Math.random() * (FLOOR_Y - 50);
+            const size = Math.random() * 2 + 1;
+            const twinkle = 0.3 + Math.sin(Date.now() * 0.003 + i * 0.5) * 0.2;
+            
+            const starOpacity = moonOpacity * twinkle;
+            
+            // Glow delle stelle
+            if (size > 2) {
+              const starGlow = ctx.createRadialGradient(x, y, 0, x, y, size * 3);
+              starGlow.addColorStop(0, `rgba(255, 255, 255, ${starOpacity * 0.3})`);
+              starGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+              ctx.fillStyle = starGlow;
+              ctx.beginPath();
+              ctx.arc(x, y, size * 3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            
+            // Stella
+            ctx.fillStyle = `rgba(255, 255, 255, ${starOpacity})`;
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        
+        // Disegna il tabellone del punteggio sopra tutto
         drawScoreBoard();
         
         ctx.restore();
@@ -977,6 +1223,9 @@
 
       function update() {
         if (gameState !== 'playing') return;
+        
+        // Aggiorna il ciclo giorno/notte
+        timeOfDay = (Date.now() % DAY_DURATION) / DAY_DURATION;
         
         // Aggiorna l'effetto shake
         updateShake();
@@ -1106,11 +1355,12 @@
         score = 0;
         speed = 2;
         ninjaPosition = 'left';
+        isHurt = false; // Reset dello stato hurt
         startScreen.style.display = 'none';
-        // Riattiva i controlli
         document.querySelector('.controls').style.pointerEvents = 'auto';
         energy = MAX_ENERGY;
         currentEnergyDecay = INITIAL_ENERGY_DECAY;
+        cycleStartTime = Date.now(); // Resetta il ciclo giorno/notte
         
         // Inizializza l'audio e carica i suoni
         initAudio();
@@ -1162,11 +1412,12 @@
         score = 0;
         speed = 2;
         ninjaPosition = 'left';
+        isHurt = false; // Reset dello stato hurt
         startScreen.style.display = 'none';
-        // Riattiva i controlli
         document.querySelector('.controls').style.pointerEvents = 'auto';
         energy = MAX_ENERGY;
         currentEnergyDecay = INITIAL_ENERGY_DECAY;
+        cycleStartTime = Date.now(); // Resetta il ciclo giorno/notte
         
         // Riavvia la musica
         if (audioContext) {
