@@ -806,12 +806,12 @@
         // Usa easeOutQuad per un movimento di attacco più fluido
         const attackProgress = attackTimer / ATTACK_DURATION;
         const easeAttackProgress = easeOutQuad(attackProgress);
-        const attackOffset = isAttacking ? 
+        const attackOffset = isAttacking && !isHurt ? 
           (ATTACK_MOVEMENT * (1 - easeAttackProgress)) : 0;
         
-        // Se in attacco, sposta il punto di disegno a sinistra per compensare la larghezza extra
+        // Se in attacco e non ferito, sposta il punto di disegno a sinistra per compensare la larghezza extra
         const drawX = ninjaPosition === 'left' ? 
-          baseX - (isAttacking ? (attackWidth - ninjaWidth) : 0) + attackOffset : 
+          baseX - (isAttacking && !isHurt ? (attackWidth - ninjaWidth) : 0) + attackOffset : 
           baseX - attackOffset;
         
         let currentNinjaImage;
@@ -822,6 +822,8 @@
           currentNinjaImage = ninjaHurtImage;
           imageLoaded = ninjaHurtImageLoaded;
           currentWidth = hurtWidth;
+          isAttacking = false; // Interrompi l'attacco quando ferito
+          attackTimer = 0;
         } else if (isAttacking && ninjaAttackImageLoaded) {
           currentNinjaImage = ninjaAttackImage;
           imageLoaded = ninjaAttackImageLoaded;
