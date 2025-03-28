@@ -529,6 +529,14 @@
         signImageLoaded = true;
       };
 
+      // Carica l'immagine del ninja ferito
+      const ninjaHurtImage = new Image();
+      ninjaHurtImage.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/hurt-Fnr4DG5aqmJTwrqakzAg2qOc2bxQnK.png?LYzb';
+      let ninjaHurtImageLoaded = false;
+      ninjaHurtImage.onload = () => {
+        ninjaHurtImageLoaded = true;
+      };
+
       canvas.width = 500;
       canvas.height = 800;
 
@@ -559,6 +567,7 @@
       let isAttacking = false;
       let attackTimer = 0;
       let currentEnergyDecay = INITIAL_ENERGY_DECAY;  // Inizia con il decay più lento
+      let isHurt = false; // Nuovo stato per il ninja ferito
       const ATTACK_DURATION = 20;
       const ATTACK_MOVEMENT = 100;
       const FADE_SPEED = 0.05;
@@ -585,8 +594,6 @@
           this.rotation = 0;
           this.offsetX = 0;
           this.cutFromSide = null;
-          this.isAnimatingBranch = false;
-          this.branchAnimationProgress = 0;
           
           if (forceNoBranch) {
             this.hasBranch = false;
@@ -673,39 +680,26 @@
             }
           }
 
-          // Disegna il ramo con animazione se necessario
+          // Disegna il ramo
           if (this.hasBranch) {
             const baseX = x + (this.branchSide === 'left' ? -BRANCH_WIDTH + 12 : BAMBOO_WIDTH - 12);
             const baseY = y + (BAMBOO_SECTION_HEIGHT - BRANCH_HEIGHT) / 2;
             
-            let branchX = baseX;
-            let branchY = baseY;
-            
-            // Applica l'animazione del ramo se attiva
-            if (this.isAnimatingBranch) {
-              this.branchAnimationProgress += 0.2; // Velocità dell'animazione
-              const targetX = this.branchSide === 'left' ? 
-                baseX + BRANCH_WIDTH + 30 : 
-                baseX - 30;
-              const progress = Math.min(1, this.branchAnimationProgress / 15);
-              branchX = baseX + (targetX - baseX) * progress;
-            }
-            
             if (leafImageLoaded) {
               ctx.save();
               if (this.branchSide === 'left') {
-                ctx.translate(branchX + BRANCH_WIDTH, branchY);
+                ctx.translate(baseX + BRANCH_WIDTH, baseY);
                 ctx.scale(-1, 1);
                 ctx.drawImage(leafImage, 0, 0, BRANCH_WIDTH, BRANCH_HEIGHT);
               } else {
-                ctx.drawImage(leafImage, branchX, branchY, BRANCH_WIDTH, BRANCH_HEIGHT);
+                ctx.drawImage(leafImage, baseX, baseY, BRANCH_WIDTH, BRANCH_HEIGHT);
               }
               ctx.restore();
             } else {
               ctx.fillStyle = '#228B22';
               ctx.strokeStyle = '#006400';
-              ctx.fillRect(branchX, branchY, BRANCH_WIDTH, BRANCH_HEIGHT);
-              ctx.strokeRect(branchX, branchY, BRANCH_WIDTH, BRANCH_HEIGHT);
+              ctx.fillRect(baseX, baseY, BRANCH_WIDTH, BRANCH_HEIGHT);
+              ctx.strokeRect(baseX, baseY, BRANCH_WIDTH, BRANCH_HEIGHT);
             }
           }
           
@@ -804,6 +798,7 @@
       function drawNinja() {
         const ninjaWidth = NINJA_SIZE/2;  // 50px
         const attackWidth = 145;
+        const hurtWidth = NINJA_SIZE/2;  // Stessa larghezza del ninja normale
         
         // Calcola la posizione base del ninja (punto di origine)
         const baseX = ninjaPosition === 'left' ? 
@@ -821,9 +816,23 @@
           baseX - (isAttacking ? (attackWidth - ninjaWidth) : 0) + attackOffset : 
           baseX - attackOffset;
         
-        const currentNinjaImage = isAttacking && ninjaAttackImageLoaded ? ninjaAttackImage : ninjaImage;
-        const imageLoaded = isAttacking ? ninjaAttackImageLoaded : ninjaImageLoaded;
-        const currentWidth = isAttacking ? attackWidth : ninjaWidth;
+        let currentNinjaImage;
+        let imageLoaded;
+        let currentWidth;
+
+        if (isHurt) {
+          currentNinjaImage = ninjaHurtImage;
+          imageLoaded = ninjaHurtImageLoaded;
+          currentWidth = hurtWidth;
+        } else if (isAttacking && ninjaAttackImageLoaded) {
+          currentNinjaImage = ninjaAttackImage;
+          imageLoaded = ninjaAttackImageLoaded;
+          currentWidth = attackWidth;
+        } else {
+          currentNinjaImage = ninjaImage;
+          imageLoaded = ninjaImageLoaded;
+          currentWidth = ninjaWidth;
+        }
         
         if (imageLoaded) {
           ctx.save();
@@ -837,7 +846,7 @@
           ctx.restore();
         } else {
           // Fallback se l'immagine non è caricata
-          ctx.fillStyle = '#2F4F4F';
+          ctx.fillStyle = isHurt ? '#FF0000' : '#2F4F4F';
           ctx.strokeStyle = '#000000';
           ctx.lineWidth = 2;
           ctx.fillRect(drawX, NINJA_Y, currentWidth, NINJA_SIZE);
@@ -1033,25 +1042,17 @@
         document.querySelector('.controls').style.pointerEvents = 'none';
         AudioManager.createGameOverSound();
         
+        // Attiva lo stato di ferito
+        isHurt = true;
+        
         // Trova la sezione con il ramo che ha causato la collisione
         const sectionIndex = bambooSections.findIndex(section => section.y === BAMBOO_BASE_Y);
         const currentSection = bambooSections[sectionIndex];
         
-        // Animazione del ramo che colpisce il ninja
-        let animationProgress = 0;
-        const animationDuration = 15;
-        const branchAnimationInterval = setInterval(() => {
-          animationProgress++;
-          
-          if (animationProgress >= animationDuration) {
-            clearInterval(branchAnimationInterval);
-            gameOver();
-          }
-        }, 16); // Circa 60fps
-        
-        // Aggiungiamo una proprietà per l'animazione del ramo
-        currentSection.branchAnimationProgress = 0;
-        currentSection.isAnimatingBranch = true;
+        // Animazione semplice prima del game over
+        setTimeout(() => {
+          gameOver();
+        }, 250); // Attendi 250ms prima del game over per mostrare il ninja ferito
       }
 
       function slash(side) {
