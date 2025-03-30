@@ -215,7 +215,7 @@
         <canvas id="gameCanvas"></canvas>
         <div id="startScreen" class="screen">
             <h1>NINJA SLASH</h1>
-            <p>Cut the bamboo while avoiding the branches!</p>
+            <p>Cut the bamboo while avoiding the branches! Make sure to act before your energy runs out!</p>
             <button class="start-button" onclick="startGame()">START</button>
         </div>
         </div>
@@ -292,7 +292,7 @@
             if (!this.audioContext) {
                 this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 this.bgMusicGainNode = this.audioContext.createGain();
-                this.bgMusicGainNode.gain.value = 0.4;
+                this.bgMusicGainNode.gain.value = 0.1;
                 this.bgMusicGainNode.connect(this.audioContext.destination);
                 
                 await this.loadSounds();
@@ -364,7 +364,7 @@
             const source = this.audioContext.createBufferSource();
             source.buffer = this.slashSound;
             const effectGainNode = this.audioContext.createGain();
-            effectGainNode.gain.value = 0.48;
+            effectGainNode.gain.value = 0.2;
             source.connect(effectGainNode);
             effectGainNode.connect(this.audioContext.destination);
             source.start(0);
@@ -376,7 +376,7 @@
             const source = this.audioContext.createBufferSource();
             source.buffer = this.collisionSound;
             const effectGainNode = this.audioContext.createGain();
-            effectGainNode.gain.value = 0.48;
+            effectGainNode.gain.value = 0.2;
             source.connect(effectGainNode);
             effectGainNode.connect(this.audioContext.destination);
             source.start(0);
@@ -385,7 +385,7 @@
         toggleMute() {
             this.isMuted = !this.isMuted;
             if (this.bgMusicGainNode) {
-                this.bgMusicGainNode.gain.value = this.isMuted ? 0 : 0.4;
+                this.bgMusicGainNode.gain.value = this.isMuted ? 0 : 0.1;
             }
             if (!this.isMuted) {
                 this.playLoopMusic();
@@ -480,7 +480,7 @@
       
       // Costanti per la barra di energia
       const MAX_ENERGY = 48;
-      const INITIAL_ENERGY_DECAY = 0.2;    // Per i primi 10 punti
+      const INITIAL_ENERGY_DECAY = 0.15;    // Per i primi 10 punti
       const MEDIUM_ENERGY_DECAY = 0.4;     // Da 11 a 75 punti
       const HARD_ENERGY_DECAY = 0.6;       // Oltre 75 punti
       const ENERGY_GAIN = 12;
@@ -1052,24 +1052,16 @@
         ctx.strokeRect(barX, barY, barWidth, barHeight);
         
         const fillWidth = (energy / MAX_ENERGY) * barWidth;
-        const gradient = ctx.createLinearGradient(barX, barY, barX + fillWidth, barY);
-        
-        const energyColors = isDark ? 
-          ['#ff4400', '#ffaa00', '#44ff00'] :  // Colori notte
-          ['#ff0000', '#ffff00', '#00ff00'];   // Colori giorno
-        
-        if (energy < 30) {
-          gradient.addColorStop(0, energyColors[0]);
-          gradient.addColorStop(1, energyColors[0]);
-        } else if (energy < 60) {
-          gradient.addColorStop(0, energyColors[1]);
-          gradient.addColorStop(1, energyColors[1]);
+
+        // Cambia il colore della barra di energia in base al livello
+        if (energy > 30) {
+            ctx.fillStyle = '#00ff00'; // Verde
+        } else if (energy > 10) {
+            ctx.fillStyle = '#ffaa00'; // Arancione
         } else {
-          gradient.addColorStop(0, energyColors[2]);
-          gradient.addColorStop(1, energyColors[2]);
+            ctx.fillStyle = '#ff0000'; // Rosso
         }
-        
-        ctx.fillStyle = gradient;
+
         ctx.fillRect(barX, barY, fillWidth, barHeight);
       }
 
