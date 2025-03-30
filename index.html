@@ -292,7 +292,7 @@
             if (!this.audioContext) {
                 this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 this.bgMusicGainNode = this.audioContext.createGain();
-                this.bgMusicGainNode.gain.value = 0.5;
+                this.bgMusicGainNode.gain.value = 0.4;
                 this.bgMusicGainNode.connect(this.audioContext.destination);
                 
                 await this.loadSounds();
@@ -363,7 +363,10 @@
             
             const source = this.audioContext.createBufferSource();
             source.buffer = this.slashSound;
-            source.connect(this.audioContext.destination);
+            const effectGainNode = this.audioContext.createGain();
+            effectGainNode.gain.value = 0.48;
+            source.connect(effectGainNode);
+            effectGainNode.connect(this.audioContext.destination);
             source.start(0);
         },
 
@@ -372,14 +375,20 @@
             
             const source = this.audioContext.createBufferSource();
             source.buffer = this.collisionSound;
-            source.connect(this.audioContext.destination);
+            const effectGainNode = this.audioContext.createGain();
+            effectGainNode.gain.value = 0.48;
+            source.connect(effectGainNode);
+            effectGainNode.connect(this.audioContext.destination);
             source.start(0);
         },
 
         toggleMute() {
             this.isMuted = !this.isMuted;
             if (this.bgMusicGainNode) {
-                this.bgMusicGainNode.gain.value = this.isMuted ? 0 : 0.5;
+                this.bgMusicGainNode.gain.value = this.isMuted ? 0 : 0.4;
+            }
+            if (!this.isMuted) {
+                this.playLoopMusic();
             }
         }
     };
