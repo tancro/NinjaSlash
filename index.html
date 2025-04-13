@@ -276,6 +276,7 @@
         loopMusic: null,
         slashSound: null,
         collisionSound: null,
+        coinSound: null,
         isMuted: false,
         bgMusicGainNode: null,
         currentMusicSource: null,
@@ -285,7 +286,8 @@
             introMusic: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/intro-V0REAtuG7BtkbzSJBnYTPz1ID9u6T4.mpeg?d8mA',
             loopMusic: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/loop-7j3HNOa8LOWIAdhVMXq6aqQJzdz9hm.mpeg?pYj0',
             slashSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/cut-OEi7bxq0z99c9CS9rbs55SsW8H7BY8.mpeg?bzpJ',
-            collisionSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/crack2-oiZkiOTmIg8ZEPAjfrgpVbyJrHICUl.mpeg?Z1Fv'
+            collisionSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/crack2-oiZkiOTmIg8ZEPAjfrgpVbyJrHICUl.mpeg?Z1Fv',
+            coinSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/coin-YhK2NqPrJLqpcXSXQl2VqjgXjyRpQy.mp3'
         },
 
         async init() {
@@ -306,6 +308,7 @@
                 this.loopMusic = await this.loadSound(this.soundURLs.loopMusic);
                 this.slashSound = await this.loadSound(this.soundURLs.slashSound);
                 this.collisionSound = await this.loadSound(this.soundURLs.collisionSound);
+                this.coinSound = await this.loadSound(this.soundURLs.coinSound);
                 console.log('Tutti i suoni caricati con successo');
             } catch (error) {
                 console.error('Errore nel caricamento dei suoni:', error);
@@ -377,6 +380,18 @@
             source.buffer = this.collisionSound;
             const effectGainNode = this.audioContext.createGain();
             effectGainNode.gain.value = 0.2;
+            source.connect(effectGainNode);
+            effectGainNode.connect(this.audioContext.destination);
+            source.start(0);
+        },
+
+        playCoinSound() {
+            if (this.isMuted || !this.coinSound || !this.audioContext) return;
+            
+            const source = this.audioContext.createBufferSource();
+            source.buffer = this.coinSound;
+            const effectGainNode = this.audioContext.createGain();
+            effectGainNode.gain.value = 0.3;
             source.connect(effectGainNode);
             effectGainNode.connect(this.audioContext.destination);
             source.start(0);
@@ -549,7 +564,7 @@
           this.rotation = 0;
           this.offsetX = 0;
           this.cutFromSide = null;
-          this.hasBonus = false; // Nuovo flag per il bonus
+          this.hasBonus = false;
           
           if (forceNoBranch) {
             this.hasBranch = false;
@@ -568,8 +583,8 @@
             
             this.hasBranch = Math.random() < branchProbability;
             
-            // Aggiungiamo la logica per il bonus
-            if (this.hasBranch && Math.random() < 0.25) { // 25% di probabilità
+            // Aumentiamo la probabilità di apparizione del nemico al 20%
+            if (this.hasBranch && Math.random() < 0.15) {
               this.hasBonus = true;
             }
             
@@ -1254,7 +1269,7 @@
             score += 3;
             startShake(5);
             energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN * 2);
-            AudioManager.playSlashSound();
+            AudioManager.playCoinSound();
             setTimeout(() => {
               if (gameState === 'playing') {
                 updateBamboo();
