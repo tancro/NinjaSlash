@@ -467,6 +467,26 @@
         ninjaHurtImageLoaded = true;
       };
 
+      // Carica l'immagine della stella bonus
+      const starBonusImage = new Image();
+      starBonusImage.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/star-YhK2NqPrJLqpcXSXQl2VqjgXjyRpQy.png';
+      let starBonusImageLoaded = false;
+      starBonusImage.onload = () => {
+        starBonusImageLoaded = true;
+      };
+
+      // Carica l'immagine del nemico (ninja cattivo)
+      const enemyImage = new Image();
+      enemyImage.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/bad-ninja-MLAvqwXKY0VgirgoqdAx1jBXyslf6M.png?y8aN';
+      let enemyImageLoaded = false;
+      let enemyOriginalWidth = 100;
+      let enemyOriginalHeight = 100;
+      enemyImage.onload = () => {
+        enemyImageLoaded = true;
+        enemyOriginalWidth = enemyImage.naturalWidth;
+        enemyOriginalHeight = enemyImage.naturalHeight;
+      };
+
       canvas.width = 500;
       canvas.height = 800;
 
@@ -529,42 +549,42 @@
           this.rotation = 0;
           this.offsetX = 0;
           this.cutFromSide = null;
+          this.hasBonus = false; // Nuovo flag per il bonus
           
           if (forceNoBranch) {
             this.hasBranch = false;
             return;
           }
           
-          // Aumentiamo la probabilità di rami in base al punteggio
           if (!lastBranchInfo || lastBranchInfo.safeDistance >= 1) {
             let branchProbability;
             if (score <= 10) {
-              branchProbability = 0.6; // Probabilità iniziale
+              branchProbability = 0.6;
             } else if (score <= 75) {
-              branchProbability = 0.8; // Probabilità media
+              branchProbability = 0.8;
             } else {
-              branchProbability = 0.9; // Probabilità alta
+              branchProbability = 0.9;
             }
             
             this.hasBranch = Math.random() < branchProbability;
             
+            // Aggiungiamo la logica per il bonus
+            if (this.hasBranch && Math.random() < 0.25) { // 25% di probabilità
+              this.hasBonus = true;
+            }
+            
             if (this.hasBranch) {
-              // Pattern più complesso per il lato del ramo
               if (lastBranchInfo && lastBranchInfo.safeDistance === 1) {
-                // Se c'è solo 2 sezioni di distanza, alterna sempre il lato
                 this.branchSide = lastBranchInfo.side === 'left' ? 'right' : 'left';
               } else if (score > 75) {
-                // Pattern più difficile dopo 75 punti: 50% di probabilità di mettere il ramo sullo stesso lato
                 this.branchSide = Math.random() < 0.5 ? 
                   (lastBranchInfo ? lastBranchInfo.side : (Math.random() < 0.5 ? 'left' : 'right')) :
                   (lastBranchInfo ? (lastBranchInfo.side === 'left' ? 'right' : 'left') : (Math.random() < 0.5 ? 'left' : 'right'));
               } else if (score > 10) {
-                // Pattern medio dopo 10 punti: 30% di probabilità di mettere il ramo sullo stesso lato
                 this.branchSide = Math.random() < 0.3 ? 
                   (lastBranchInfo ? lastBranchInfo.side : (Math.random() < 0.5 ? 'left' : 'right')) :
                   (lastBranchInfo ? (lastBranchInfo.side === 'left' ? 'right' : 'left') : (Math.random() < 0.5 ? 'left' : 'right'));
               } else {
-                // Pattern normale per i primi 10 punti
                 this.branchSide = lastBranchInfo ? 
                   (lastBranchInfo.side === 'left' ? 'right' : 'left') : 
                   (Math.random() < 0.5 ? 'left' : 'right');
@@ -591,7 +611,6 @@
           ctx.translate(-centerX, -centerY);
           
           if (this.intact) {
-            // Disegna il bambù intatto
             if (bambooImageLoaded) {
               ctx.drawImage(
                 bambooImage,
@@ -601,7 +620,6 @@
                 BAMBOO_SECTION_HEIGHT
               );
             } else {
-              // Fallback per bambù intatto
               ctx.fillStyle = '#90EE90';
               ctx.strokeStyle = '#228B22';
               ctx.lineWidth = 2;
@@ -609,10 +627,9 @@
               ctx.strokeRect(x, y, BAMBOO_WIDTH, BAMBOO_SECTION_HEIGHT);
             }
           } else {
-            // Disegna il bambù tagliato
             if (bambooImageCutLoaded) {
-              const cutBambooWidth = 60;  // Manteniamo la stessa larghezza del bambù intatto
-              const cutBambooHeight = 100; // Manteniamo la stessa altezza del bambù intatto
+              const cutBambooWidth = 60;
+              const cutBambooHeight = 100;
               ctx.drawImage(
                 bambooImageCut,
                 x,
@@ -621,7 +638,6 @@
                 cutBambooHeight
               );
             } else {
-              // Fallback per bambù tagliato
               ctx.fillStyle = '#90EE90';
               ctx.strokeStyle = '#8B4513';
               ctx.lineWidth = 2;
@@ -630,26 +646,100 @@
             }
           }
 
-          // Disegna il ramo
           if (this.hasBranch) {
             const baseX = x + (this.branchSide === 'left' ? -BRANCH_WIDTH + 12 : BAMBOO_WIDTH - 12);
             const baseY = y + (BAMBOO_SECTION_HEIGHT - BRANCH_HEIGHT) / 2;
             
-            if (leafImageLoaded) {
-              ctx.save();
-              if (this.branchSide === 'left') {
-                ctx.translate(baseX + BRANCH_WIDTH, baseY);
-                ctx.scale(-1, 1);
-                ctx.drawImage(leafImage, 0, 0, BRANCH_WIDTH, BRANCH_HEIGHT);
+            if (this.hasBonus) {
+              // Disegna il nemico
+              if (enemyImageLoaded) {
+                // Imposta l'altezza a 100px e mantieni le proporzioni
+                const enemyHeight = 100;
+                const scale = enemyHeight / enemyOriginalHeight;
+                const enemyWidth = enemyOriginalWidth * scale;
+                
+                // Calcola la distanza dal tronco (usando la stessa distanza per entrambi i lati)
+                const distanceFromBamboo = BRANCH_WIDTH/2 + enemyWidth/2 - 20;
+                
+                // Aggiusta la posizione per avere la stessa distanza su entrambi i lati
+                const adjustedBaseX = this.branchSide === 'left' ? 
+                  x + BAMBOO_WIDTH/2 - distanceFromBamboo - enemyWidth/2 : 
+                  x + BAMBOO_WIDTH/2 + distanceFromBamboo - enemyWidth/2;
+                const adjustedBaseY = baseY - (enemyHeight - BRANCH_HEIGHT)/2; // Centra verticalmente
+                
+                ctx.save();
+                if (this.branchSide === 'left') {
+                  ctx.translate(adjustedBaseX + enemyWidth, adjustedBaseY);
+                  ctx.scale(-1, 1);
+                  ctx.drawImage(enemyImage, 0, 0, enemyWidth, enemyHeight);
+                } else {
+                  ctx.drawImage(enemyImage, adjustedBaseX, adjustedBaseY, enemyWidth, enemyHeight);
+                }
+                ctx.restore();
+                
+                // Effetto glow rosso per il nemico
+                const glowX = adjustedBaseX + enemyWidth/2;
+                const glowY = adjustedBaseY + enemyHeight/2;
+                const glow = ctx.createRadialGradient(
+                  glowX, 
+                  glowY, 
+                  0,
+                  glowX, 
+                  glowY, 
+                  enemyWidth/2
+                );
+                glow.addColorStop(0, 'rgba(255, 0, 0, 0.2)');
+                glow.addColorStop(1, 'rgba(255, 0, 0, 0)');
+                ctx.fillStyle = glow;
+                ctx.fillRect(
+                  adjustedBaseX - enemyWidth/4, 
+                  adjustedBaseY - enemyHeight/4, 
+                  enemyWidth * 1.5, 
+                  enemyHeight * 1.5
+                );
               } else {
-                ctx.drawImage(leafImage, baseX, baseY, BRANCH_WIDTH, BRANCH_HEIGHT);
+                // Fallback per il nemico
+                const enemyHeight = 100;
+                const enemyWidth = enemyHeight;
+                const distanceFromBamboo = BRANCH_WIDTH/2 + enemyWidth/2 - 20; // Riduciamo anche qui di 20px
+                
+                const adjustedBaseX = this.branchSide === 'left' ? 
+                  x + BAMBOO_WIDTH/2 - distanceFromBamboo - enemyWidth/2 : 
+                  x + BAMBOO_WIDTH/2 + distanceFromBamboo - enemyWidth/2;
+                const adjustedBaseY = baseY - (enemyHeight - BRANCH_HEIGHT)/2;
+                
+                ctx.fillStyle = '#FF0000';
+                ctx.strokeStyle = '#8B0000';
+                ctx.beginPath();
+                ctx.moveTo(adjustedBaseX + enemyWidth/2, adjustedBaseY);
+                for (let i = 0; i < 5; i++) {
+                  const angle = (i * 4 * Math.PI / 5) - Math.PI/2;
+                  ctx.lineTo(
+                    adjustedBaseX + enemyWidth/2 + Math.cos(angle) * enemyWidth/2,
+                    adjustedBaseY + enemyHeight/2 + Math.sin(angle) * enemyHeight/2
+                  );
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
               }
-              ctx.restore();
             } else {
-              ctx.fillStyle = '#228B22';
-              ctx.strokeStyle = '#006400';
-              ctx.fillRect(baseX, baseY, BRANCH_WIDTH, BRANCH_HEIGHT);
-              ctx.strokeRect(baseX, baseY, BRANCH_WIDTH, BRANCH_HEIGHT);
+              if (leafImageLoaded) {
+                ctx.save();
+                if (this.branchSide === 'left') {
+                  ctx.translate(baseX + BRANCH_WIDTH, baseY);
+                  ctx.scale(-1, 1);
+                  ctx.drawImage(leafImage, 0, 0, BRANCH_WIDTH, BRANCH_HEIGHT);
+                } else {
+                  ctx.drawImage(leafImage, baseX, baseY, BRANCH_WIDTH, BRANCH_HEIGHT);
+                }
+                ctx.restore();
+              } else {
+                ctx.fillStyle = '#228B22';
+                ctx.strokeStyle = '#006400';
+                ctx.fillRect(baseX, baseY, BRANCH_WIDTH, BRANCH_HEIGHT);
+                ctx.strokeRect(baseX, baseY, BRANCH_WIDTH, BRANCH_HEIGHT);
+              }
             }
           }
           
@@ -1157,12 +1247,33 @@
         
         // Collisione con il ramo corrente
         if (currentSection.hasBranch && currentSection.branchSide === side) {
-          handleCollision();
-          return true;
+          if (currentSection.hasBonus) {
+            // Se è un bonus, raccoglilo e continua a giocare
+            currentSection.intact = false;
+            currentSection.cutFromSide = side;
+            score += 3;
+            startShake(5);
+            energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN * 2);
+            AudioManager.playSlashSound();
+            setTimeout(() => {
+              if (gameState === 'playing') {
+                updateBamboo();
+                window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+              }
+            }, 100);
+            return false;
+          } else {
+            // Solo se non è un bonus, gestisci come collisione fatale
+            handleCollision();
+            return true;
+          }
         }
         
-        // Collisione con il prossimo ramo (solo se il bambù corrente viene tagliato)
+        // Collisione con il prossimo ramo
         if (nextSection && nextSection.hasBranch && nextSection.branchSide === side) {
+          if (nextSection.hasBonus) {
+            return false; // Se il prossimo è un bonus, permetti il taglio
+          }
           return false; // Non è ancora una collisione, ma lo diventerà dopo il taglio
         }
         
@@ -1200,21 +1311,31 @@
         isAttacking = true;
         attackTimer = 0;
         
+        // Controlla se stiamo colpendo un bonus
+        if (currentSection.hasBranch && currentSection.branchSide === side && currentSection.hasBonus) {
+          // La logica del bonus è gestita in checkCollisions
+          checkCollisions(side);
+          return;
+        }
+        
+        // Per colpi non-bonus
         AudioManager.playSlashSound();
         
-        // Controlla collisione immediata
         if (checkCollisions(side)) return;
         
         if (currentSection.intact) {
           currentSection.intact = false;
           currentSection.cutFromSide = side;
-          score++;
-          energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN);
           
-          // Controlla collisione con il prossimo ramo dopo il taglio
+          // Aggiungiamo punti solo se non è un bonus (perché i punti bonus sono già stati assegnati in checkCollisions)
+          if (!(currentSection.hasBranch && currentSection.hasBonus)) {
+            score++;
+            energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN);
+          }
+          
           setTimeout(() => {
             if (gameState === 'playing') {
-              if (nextSection && nextSection.hasBranch && nextSection.branchSide === side) {
+              if (nextSection && nextSection.hasBranch && nextSection.branchSide === side && !nextSection.hasBonus) {
                 handleCollision();
                 return;
               }
