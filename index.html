@@ -288,7 +288,6 @@
             loopMusic: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/loop-7j3HNOa8LOWIAdhVMXq6aqQJzdz9hm.mpeg?pYj0',
             slashSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/cut-OEi7bxq0z99c9CS9rbs55SsW8H7BY8.mpeg?bzpJ',
             collisionSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/crack2-oiZkiOTmIg8ZEPAjfrgpVbyJrHICUl.mpeg?Z1Fv',
-            coinSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/coin-YhK2NqPrJLqpcXSXQl2VqjgXjyRpQy.mp3',
             ninjaHitSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/hit-hvxK4INhLVlMkKQ2ikDh8Lsqwo1bbP.mpeg?xl4F'
         },
 
@@ -428,7 +427,7 @@
                 const source = this.audioContext.createBufferSource();
                 source.buffer = soundBuffer;
                 const effectGainNode = this.audioContext.createGain();
-                effectGainNode.gain.value = 0.8;
+                effectGainNode.gain.value = 0.64; // Ridotto da 0.8 a 0.64 (riduzione del 20%)
                 source.connect(effectGainNode);
                 effectGainNode.connect(this.audioContext.destination);
                 source.start(0);
@@ -520,14 +519,6 @@
       let ninjaHurtImageLoaded = false;
       ninjaHurtImage.onload = () => {
         ninjaHurtImageLoaded = true;
-      };
-
-      // Carica l'immagine della stella bonus
-      const starBonusImage = new Image();
-      starBonusImage.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/star-YhK2NqPrJLqpcXSXQl2VqjgXjyRpQy.png';
-      let starBonusImageLoaded = false;
-      starBonusImage.onload = () => {
-        starBonusImageLoaded = true;
       };
 
       // Carica l'immagine del nemico (ninja cattivo)
@@ -1325,6 +1316,7 @@
         
         if (currentSection.hasBranch && currentSection.branchSide === side && currentSection.hasBonus && !currentSection.enemyIsFading) {
           checkCollisions(side);
+          AudioManager.playNinjaHitSound();
           return;
         }
         
