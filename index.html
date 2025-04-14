@@ -277,6 +277,7 @@
         slashSound: null,
         collisionSound: null,
         coinSound: null,
+        ninjaHitSound: null,
         isMuted: false,
         bgMusicGainNode: null,
         currentMusicSource: null,
@@ -287,7 +288,8 @@
             loopMusic: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/loop-7j3HNOa8LOWIAdhVMXq6aqQJzdz9hm.mpeg?pYj0',
             slashSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/cut-OEi7bxq0z99c9CS9rbs55SsW8H7BY8.mpeg?bzpJ',
             collisionSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/crack2-oiZkiOTmIg8ZEPAjfrgpVbyJrHICUl.mpeg?Z1Fv',
-            coinSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/coin-YhK2NqPrJLqpcXSXQl2VqjgXjyRpQy.mp3'
+            coinSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/coin-YhK2NqPrJLqpcXSXQl2VqjgXjyRpQy.mp3',
+            ninjaHitSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/ninja-hit-S4VAkCflnTaRMNnVGBrqypoFjnfkMl.mp3'
         },
 
         async init() {
@@ -309,6 +311,7 @@
                 this.slashSound = await this.loadSound(this.soundURLs.slashSound);
                 this.collisionSound = await this.loadSound(this.soundURLs.collisionSound);
                 this.coinSound = await this.loadSound(this.soundURLs.coinSound);
+                this.ninjaHitSound = await this.loadSound(this.soundURLs.ninjaHitSound);
                 console.log('Tutti i suoni caricati con successo');
             } catch (error) {
                 console.error('Errore nel caricamento dei suoni:', error);
@@ -316,9 +319,26 @@
         },
 
         async loadSound(url) {
-            const response = await fetch(url);
-            const arrayBuffer = await response.arrayBuffer();
-            return await this.audioContext.decodeAudioData(arrayBuffer);
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const arrayBuffer = await response.arrayBuffer();
+                return await new Promise((resolve, reject) => {
+                    this.audioContext.decodeAudioData(
+                        arrayBuffer,
+                        (buffer) => resolve(buffer),
+                        (error) => {
+                            console.error('Errore nella decodifica audio:', error);
+                            resolve(null); // Risolve con null invece di reject
+                        }
+                    );
+                });
+            } catch (error) {
+                console.error('Errore nel caricamento del suono:', error);
+                return null; // Ritorna null in caso di errore
+            }
         },
 
         stopCurrentMusic() {
@@ -395,6 +415,26 @@
             source.connect(effectGainNode);
             effectGainNode.connect(this.audioContext.destination);
             source.start(0);
+        },
+
+        playNinjaHitSound() {
+            if (this.isMuted || !this.audioContext) return;
+            
+            // Se il suono ninja non è disponibile, usa il suono di taglio come fallback
+            const soundBuffer = this.ninjaHitSound || this.slashSound;
+            if (!soundBuffer) return;
+            
+            try {
+                const source = this.audioContext.createBufferSource();
+                source.buffer = soundBuffer;
+                const effectGainNode = this.audioContext.createGain();
+                effectGainNode.gain.value = 0.8;
+                source.connect(effectGainNode);
+                effectGainNode.connect(this.audioContext.destination);
+                source.start(0);
+            } catch (error) {
+                console.error('Errore nella riproduzione del suono:', error);
+            }
         },
 
         toggleMute() {
@@ -584,7 +624,7 @@
             this.hasBranch = Math.random() < branchProbability;
             
             // Aumentiamo la probabilità di apparizione del nemico al 20%
-            if (this.hasBranch && Math.random() < 0.15) {
+            if (this.hasBranch && Math.random() < 0.10) {
               this.hasBonus = true;
             }
             
@@ -1269,7 +1309,14 @@
             score += 3;
             startShake(5);
             energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN * 2);
-            AudioManager.playCoinSound();
+            
+            // Riproduci il suono del colpo
+            if (AudioManager && AudioManager.audioContext) {
+              AudioManager.audioContext.resume().then(() => {
+                AudioManager.playNinjaHitSound();
+              });
+            }
+            
             setTimeout(() => {
               if (gameState === 'playing') {
                 updateBamboo();
