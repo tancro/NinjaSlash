@@ -289,7 +289,7 @@
             slashSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/cut-OEi7bxq0z99c9CS9rbs55SsW8H7BY8.mpeg?bzpJ',
             collisionSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/crack2-oiZkiOTmIg8ZEPAjfrgpVbyJrHICUl.mpeg?Z1Fv',
             coinSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/coin-YhK2NqPrJLqpcXSXQl2VqjgXjyRpQy.mp3',
-            ninjaHitSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/ninja-hit-S4VAkCflnTaRMNnVGBrqypoFjnfkMl.mp3'
+            ninjaHitSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/hit-hvxK4INhLVlMkKQ2ikDh8Lsqwo1bbP.mpeg?xl4F'
         },
 
         async init() {
@@ -605,6 +605,10 @@
           this.offsetX = 0;
           this.cutFromSide = null;
           this.hasBonus = false;
+          this.enemyTimer = 0;
+          this.enemyFadeOut = 1.0;
+          this.enemyIsFading = false;
+          this.enemyHasAppeared = false;
           
           if (forceNoBranch) {
             this.hasBranch = false;
@@ -623,8 +627,7 @@
             
             this.hasBranch = Math.random() < branchProbability;
             
-            // Aumentiamo la probabilità di apparizione del nemico al 20%
-            if (this.hasBranch && Math.random() < 0.10) {
+            if (this.hasBranch && Math.random() < 0.20) {
               this.hasBonus = true;
             }
             
@@ -706,21 +709,20 @@
             const baseY = y + (BAMBOO_SECTION_HEIGHT - BRANCH_HEIGHT) / 2;
             
             if (this.hasBonus) {
-              // Disegna il nemico
+              ctx.save();
+              ctx.globalAlpha = this.enemyFadeOut;
+              
               if (enemyImageLoaded) {
-                // Imposta l'altezza a 100px e mantieni le proporzioni
                 const enemyHeight = 100;
                 const scale = enemyHeight / enemyOriginalHeight;
                 const enemyWidth = enemyOriginalWidth * scale;
                 
-                // Calcola la distanza dal tronco (usando la stessa distanza per entrambi i lati)
                 const distanceFromBamboo = BRANCH_WIDTH/2 + enemyWidth/2 - 20;
                 
-                // Aggiusta la posizione per avere la stessa distanza su entrambi i lati
                 const adjustedBaseX = this.branchSide === 'left' ? 
                   x + BAMBOO_WIDTH/2 - distanceFromBamboo - enemyWidth/2 : 
                   x + BAMBOO_WIDTH/2 + distanceFromBamboo - enemyWidth/2;
-                const adjustedBaseY = baseY - (enemyHeight - BRANCH_HEIGHT)/2; // Centra verticalmente
+                const adjustedBaseY = baseY - (enemyHeight - BRANCH_HEIGHT)/2;
                 
                 ctx.save();
                 if (this.branchSide === 'left') {
@@ -731,32 +733,10 @@
                   ctx.drawImage(enemyImage, adjustedBaseX, adjustedBaseY, enemyWidth, enemyHeight);
                 }
                 ctx.restore();
-                
-                // Effetto glow rosso per il nemico
-                const glowX = adjustedBaseX + enemyWidth/2;
-                const glowY = adjustedBaseY + enemyHeight/2;
-                const glow = ctx.createRadialGradient(
-                  glowX, 
-                  glowY, 
-                  0,
-                  glowX, 
-                  glowY, 
-                  enemyWidth/2
-                );
-                glow.addColorStop(0, 'rgba(255, 0, 0, 0.2)');
-                glow.addColorStop(1, 'rgba(255, 0, 0, 0)');
-                ctx.fillStyle = glow;
-                ctx.fillRect(
-                  adjustedBaseX - enemyWidth/4, 
-                  adjustedBaseY - enemyHeight/4, 
-                  enemyWidth * 1.5, 
-                  enemyHeight * 1.5
-                );
               } else {
-                // Fallback per il nemico
                 const enemyHeight = 100;
                 const enemyWidth = enemyHeight;
-                const distanceFromBamboo = BRANCH_WIDTH/2 + enemyWidth/2 - 20; // Riduciamo anche qui di 20px
+                const distanceFromBamboo = BRANCH_WIDTH/2 + enemyWidth/2 - 20;
                 
                 const adjustedBaseX = this.branchSide === 'left' ? 
                   x + BAMBOO_WIDTH/2 - distanceFromBamboo - enemyWidth/2 : 
@@ -778,6 +758,8 @@
                 ctx.fill();
                 ctx.stroke();
               }
+              
+              ctx.restore();
             } else {
               if (leafImageLoaded) {
                 ctx.save();
@@ -809,12 +791,10 @@
           if (this.intact) {
             this.drawBambooSection(canvas.width/2 - BAMBOO_WIDTH/2, this.y, 0);
           } else {
-            // Calcola l'offset in base al lato del taglio
             const baseX = canvas.width/2 - BAMBOO_WIDTH/2;
             const moveDirection = this.cutFromSide === 'left' ? 1 : -1;
             const targetOffset = 30 * moveDirection;
             
-            // Usa easeInOutQuad per movimento e rotazione più fluidi
             const progress = 1 - this.fadeOut;
             const easeProgress = easeInOutQuad(progress);
             
@@ -833,11 +813,9 @@
         bambooSections = [];
         let lastBranchInfo = null;
         
-        // Aggiungi la prima sezione senza rami per un inizio sicuro
         const baseSection = new BambooSection(BAMBOO_BASE_Y, null, true);
         bambooSections.push(baseSection);
         
-        // Aggiungi le sezioni rimanenti con possibili rami
         for (let i = 1; i < Math.ceil(canvas.height / BAMBOO_SECTION_HEIGHT); i++) {
           const y = BAMBOO_BASE_Y - (i * BAMBOO_SECTION_HEIGHT);
           const section = new BambooSection(y, lastBranchInfo);
@@ -889,22 +867,19 @@
       }
 
       function drawNinja() {
-        const ninjaWidth = NINJA_SIZE/2;  // 50px
+        const ninjaWidth = NINJA_SIZE/2;
         const attackWidth = 145;
-        const hurtWidth = NINJA_SIZE/2;  // Stessa larghezza del ninja normale
+        const hurtWidth = NINJA_SIZE/2;
         
-        // Calcola la posizione base del ninja (punto di origine)
         const baseX = ninjaPosition === 'left' ? 
           canvas.width/2 - BAMBOO_WIDTH/2 - ninjaWidth - 15 : 
           canvas.width/2 + BAMBOO_WIDTH/2 + 15;
         
-        // Usa easeOutQuad per un movimento di attacco più fluido
         const attackProgress = attackTimer / ATTACK_DURATION;
         const easeAttackProgress = easeOutQuad(attackProgress);
         const attackOffset = isAttacking && !isHurt ? 
           (ATTACK_MOVEMENT * (1 - easeAttackProgress)) : 0;
         
-        // Se in attacco e non ferito, sposta il punto di disegno a sinistra per compensare la larghezza extra
         const drawX = ninjaPosition === 'left' ? 
           baseX - (isAttacking && !isHurt ? (attackWidth - ninjaWidth) : 0) + attackOffset : 
           baseX - attackOffset;
@@ -917,7 +892,7 @@
           currentNinjaImage = ninjaHurtImage;
           imageLoaded = ninjaHurtImageLoaded;
           currentWidth = hurtWidth;
-          isAttacking = false; // Interrompi l'attacco quando ferito
+          isAttacking = false;
           attackTimer = 0;
         } else if (isAttacking && ninjaAttackImageLoaded) {
           currentNinjaImage = ninjaAttackImage;
@@ -940,18 +915,15 @@
           }
           ctx.restore();
         } else {
-          // Fallback se l'immagine non è caricata
           ctx.fillStyle = isHurt ? '#FF0000' : '#2F4F4F';
           ctx.strokeStyle = '#000000';
           ctx.lineWidth = 2;
           ctx.fillRect(drawX, NINJA_Y, currentWidth, NINJA_SIZE);
           ctx.strokeRect(drawX, NINJA_Y, currentWidth, NINJA_SIZE);
           
-          // Fascia del ninja
           ctx.fillStyle = '#FF0000';
           ctx.fillRect(drawX, NINJA_Y + NINJA_SIZE/2 - 5, currentWidth, 10);
           
-          // Occhi del ninja
           const faceX = drawX + currentWidth/4;
           const faceY = NINJA_Y + NINJA_SIZE/4;
           
@@ -963,12 +935,10 @@
 
       function drawFloor() {
         if (grassImageLoaded) {
-          // Dimensioni dell'immagine dell'erba
-          const grassWidth = 500;  // Larghezza aumentata a 500
-          const grassHeight = 40;   // Altezza mantenuta a 40
+          const grassWidth = 500;
+          const grassHeight = 40;
           const repetitions = Math.ceil(canvas.width / grassWidth);
           
-          // Disegna l'erba ripetutamente per coprire tutto il pavimento
           for (let i = 0; i < repetitions; i++) {
             ctx.drawImage(
               grassImage,
@@ -979,7 +949,6 @@
             );
           }
         } else {
-          // Fallback se l'immagine non è caricata
           ctx.fillStyle = '#8B4513';
           ctx.fillRect(0, FLOOR_Y, canvas.width, FLOOR_HEIGHT);
           
@@ -991,7 +960,6 @@
           }
         }
         
-        // Ombra sopra il pavimento
         const gradient = ctx.createLinearGradient(0, FLOOR_Y - 10, 0, FLOOR_Y);
         gradient.addColorStop(0, 'rgba(0,0,0,0)');
         gradient.addColorStop(1, 'rgba(0,0,0,0.3)');
@@ -1005,12 +973,10 @@
         const elapsedTime = Date.now() - cycleStartTime;
         const cycleTime = elapsedTime % TOTAL_CYCLE_DURATION;
         
-        // Giorno: 0 -> DAY_DURATION
         if (cycleTime < DAY_DURATION) {
           return { phase: 'day', intensity: 0 };
         }
         
-        // Tramonto: DAY_DURATION -> DAY_DURATION + TRANSITION_DURATION
         if (cycleTime < DAY_DURATION + TRANSITION_DURATION) {
           const progress = (cycleTime - DAY_DURATION) / TRANSITION_DURATION;
           return { 
@@ -1020,7 +986,6 @@
           };
         }
         
-        // Notte: DAY_DURATION + TRANSITION_DURATION -> DAY_DURATION + TRANSITION_DURATION + NIGHT_DURATION
         if (cycleTime < DAY_DURATION + TRANSITION_DURATION + NIGHT_DURATION) {
           const progress = (cycleTime - (DAY_DURATION + TRANSITION_DURATION)) / NIGHT_DURATION;
           return { 
@@ -1030,7 +995,6 @@
           };
         }
         
-        // Alba: Resto del ciclo
         const progress = (cycleTime - (DAY_DURATION + TRANSITION_DURATION + NIGHT_DURATION)) / TRANSITION_DURATION;
         return { 
           phase: 'sunrise', 
@@ -1042,16 +1006,13 @@
       function drawDayNightOverlay() {
         const { phase, intensity, nightProgress } = getDayNightPhase();
         
-        // Creiamo un gradiente per il cielo
         const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
         
         if (phase === 'night') {
-          // Notte piena
           gradient.addColorStop(0, `rgba(0, 0, 50, ${intensity * 0.7})`);
           gradient.addColorStop(0.5, `rgba(0, 0, 35, ${intensity * 0.7})`);
           gradient.addColorStop(1, `rgba(0, 0, 20, ${intensity * 0.7})`);
         } else if (phase === 'sunset') {
-          // Tramonto - miscela tra colori del tramonto e della notte
           const sunsetColors = {
             top: [255, 150, 50],
             middle: [255, 100, 50],
@@ -1075,7 +1036,6 @@
           gradient.addColorStop(0.5, `rgba(${middleColor.join(',')}, ${intensity * 0.5})`);
           gradient.addColorStop(1, `rgba(${bottomColor.join(',')}, ${intensity * 0.4})`);
         } else if (phase === 'sunrise') {
-          // Alba - miscela tra colori della notte e dell'alba
           const sunriseColors = {
             top: [255, 200, 150],
             middle: [255, 180, 100],
@@ -1103,13 +1063,11 @@
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Effetti luna e stelle solo durante la notte e le transizioni
         if (phase === 'night' || phase === 'sunset' || phase === 'sunrise') {
           const moonOpacity = phase === 'night' ? intensity : 
                             phase === 'sunset' ? easeInOutCubic(nightProgress || 0) :
                             phase === 'sunrise' ? easeInOutCubic(nightProgress || 0) : 0;
           
-          // Effetto luna con glow più pronunciato
           const moonX = canvas.width * 0.8;
           const moonY = canvas.height * 0.2;
           const moonGlow = ctx.createRadialGradient(
@@ -1122,27 +1080,19 @@
           ctx.fillStyle = moonGlow;
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           
-          // Disegna la luna con un bordo luminoso
           ctx.beginPath();
           ctx.fillStyle = `rgba(255, 255, 230, ${moonOpacity})`;
           ctx.arc(moonX, moonY, 30, 0, Math.PI * 2);
           ctx.fill();
           
-          // Bordo luminoso della luna
           ctx.beginPath();
           ctx.strokeStyle = `rgba(255, 255, 255, ${moonOpacity * 0.5})`;
           ctx.lineWidth = 2;
           ctx.arc(moonX, moonY, 31, 0, Math.PI * 2);
           ctx.stroke();
           
-          // Aggiungi stelle con effetto di pulsazione lenta
-          for (let i = 0; i < 1; i++) { // Ridotto a 5 stelle
-            const x = Math.random() * canvas.width;
-            const y = Math.random() * (FLOOR_Y - 50);
-            const size = Math.random() * 2 + 1;
-            
-            // Nuovo calcolo della pulsazione
-            const pulseOpacity = 0.5 + 0.5 * Math.sin(Date.now() * (Math.PI / 5000) + i); // Pulsazione di un secondo
+          if (phase === 'night' || phase === 'sunset' || phase === 'sunrise') {
+            const pulseOpacity = 0.5 + 0.5 * Math.sin(Date.now() * (Math.PI / 5000) + i);
             const starOpacity = moonOpacity * pulseOpacity;
             
             ctx.fillStyle = `rgba(255, 255, 255, ${starOpacity})`;
@@ -1150,7 +1100,6 @@
             ctx.arc(x, y, size, 0, Math.PI * 2);
             ctx.fill();
             
-            // Aggiungi un glow alle stelle più grandi
             if (size > 2) {
               const starGlow = ctx.createRadialGradient(x, y, 0, x, y, size * 3);
               starGlow.addColorStop(0, `rgba(255, 255, 255, ${starOpacity * 0.3})`);
@@ -1174,7 +1123,6 @@
           ctx.drawImage(signImage, x, y, boardWidth, boardHeight);
         }
         
-        // Modifichiamo i colori in base al momento del giorno
         const isDark = timeOfDay > 0.25 && timeOfDay < 0.75;
         
         ctx.fillStyle = '#000000'; 
@@ -1183,7 +1131,6 @@
         ctx.textBaseline = 'middle';
         ctx.fillText(`${score}`, x + boardWidth/2, y + 45);
         
-        // Barra energia
         const barWidth = boardWidth * 0.3;
         const barHeight = 15;
         const barX = x + (boardWidth - barWidth) / 2;
@@ -1198,13 +1145,12 @@
         
         const fillWidth = (energy / MAX_ENERGY) * barWidth;
 
-        // Cambia il colore della barra di energia in base al livello
         if (energy > 30) {
-            ctx.fillStyle = '#00ff00'; // Verde
+            ctx.fillStyle = '#00ff00';
         } else if (energy > 10) {
-            ctx.fillStyle = '#ffaa00'; // Arancione
+            ctx.fillStyle = '#ffaa00';
         } else {
-            ctx.fillStyle = '#ff0000'; // Rosso
+            ctx.fillStyle = '#ff0000';
         }
 
         ctx.fillRect(barX, barY, fillWidth, barHeight);
@@ -1213,45 +1159,38 @@
       function draw() {
         ctx.save();
         
-        // Applica l'effetto shake
         ctx.translate(shakeOffsetX, shakeOffsetY);
         
-       // Disegna lo sfondo
-         if (backgroundImageLoaded) {
-           ctx.drawImage(backgroundImage, 0, 0, canvas.width, FLOOR_Y);
-         } else {
-           ctx.fillStyle = '#87CEEB';
-           ctx.fillRect(0, 0, canvas.width, FLOOR_Y);
-         }
+        if (backgroundImageLoaded) {
+          ctx.drawImage(backgroundImage, 0, 0, canvas.width, FLOOR_Y);
+        } else {
+          ctx.fillStyle = '#87CEEB';
+          ctx.fillRect(0, 0, canvas.width, FLOOR_Y);
+        }
         
-        // Disegna il pavimento
         drawFloor();
         
-        // Disegna il bambù
         drawBamboo();
         
-        // Disegna il ninja
         drawNinja();
 
-        // Applica l'overlay giorno/notte
         drawDayNightOverlay();
         
-        // Disegna il tabellone del punteggio sopra tutto
         drawScoreBoard();
         
         ctx.restore();
       }
 
+      const ENEMY_LIFESPAN = 120;
+      const ENEMY_FADE_SPEED = 0.03;
+
       function update() {
         if (gameState !== 'playing') return;
         
-        // Aggiorna il ciclo giorno/notte
         timeOfDay = (Date.now() % DAY_DURATION) / DAY_DURATION;
         
-        // Aggiorna l'effetto shake
         updateShake();
         
-        // Aggiorna il decay dell'energia in base al punteggio
         if (score <= 10) {
             currentEnergyDecay = INITIAL_ENERGY_DECAY;
         } else if (score <= 75) {
@@ -1269,7 +1208,6 @@
             return;
         }
 
-        // Aggiorna il timer di attacco
         if (isAttacking) {
           attackTimer++;
           if (attackTimer >= ATTACK_DURATION) {
@@ -1278,14 +1216,41 @@
           }
         }
         
-        bambooSections.forEach(section => {
+        bambooSections.forEach((section, index) => {
           if (!section.intact && section.visible) {
             section.fadeOut -= FADE_SPEED;
             if (section.fadeOut <= 0) {
               section.visible = false;
-              if (section.y === BAMBOO_BASE_Y) {
-                updateBamboo();
-              }
+            }
+          }
+          
+          if (section.hasBonus && section.intact) {
+            if (section.y >= 0 && !section.enemyHasAppeared) {
+               console.log(`Enemy appeared on screen on section ${index} at y=${section.y}. Starting timer.`);
+               section.enemyHasAppeared = true;
+               section.enemyTimer = 0;
+            }
+
+            if (section.enemyHasAppeared) {
+              section.enemyTimer++;
+            }
+            
+            if (section.enemyTimer > ENEMY_LIFESPAN && !section.enemyIsFading) {
+              console.log(`Enemy on section ${index} starting to fade (timer: ${section.enemyTimer})`);
+              section.enemyIsFading = true;
+            }
+            
+            if (section.enemyIsFading) {
+               section.enemyFadeOut -= ENEMY_FADE_SPEED;
+               if (section.enemyFadeOut <= 0) {
+                 console.log(`Enemy on section ${index} faded out completely. Removing bonus AND branch flag.`);
+                 section.hasBonus = false;
+                 section.hasBranch = false;
+                 section.enemyFadeOut = 0;
+                 section.enemyIsFading = false;
+                 section.enemyHasAppeared = false;
+                 section.enemyTimer = 0;
+               }
             }
           }
         });
@@ -1300,43 +1265,34 @@
         const currentSection = bambooSections[sectionIndex];
         const nextSection = bambooSections[sectionIndex - 1];
         
-        // Collisione con il ramo corrente
         if (currentSection.hasBranch && currentSection.branchSide === side) {
           if (currentSection.hasBonus) {
-            // Se è un bonus, raccoglilo e continua a giocare
-            currentSection.intact = false;
-            currentSection.cutFromSide = side;
-            score += 3;
-            startShake(5);
-            energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN * 2);
-            
-            // Riproduci il suono del colpo
-            if (AudioManager && AudioManager.audioContext) {
-              AudioManager.audioContext.resume().then(() => {
-                AudioManager.playNinjaHitSound();
-              });
+            if (!currentSection.enemyIsFading) {
+              currentSection.intact = false;
+              currentSection.cutFromSide = side;
+              score += 3;
+              startShake(5);
+              energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN * 2);
+              
+              setTimeout(() => {
+                if (gameState === 'playing') {
+                  updateBamboo();
+                  window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+                }
+              }, 100);
             }
-            
-            setTimeout(() => {
-              if (gameState === 'playing') {
-                updateBamboo();
-                window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
-              }
-            }, 100);
             return false;
           } else {
-            // Solo se non è un bonus, gestisci come collisione fatale
             handleCollision();
             return true;
           }
         }
         
-        // Collisione con il prossimo ramo
         if (nextSection && nextSection.hasBranch && nextSection.branchSide === side) {
           if (nextSection.hasBonus) {
-            return false; // Se il prossimo è un bonus, permetti il taglio
+            return false;
           }
-          return false; // Non è ancora una collisione, ma lo diventerà dopo il taglio
+          return false;
         }
         
         return false;
@@ -1347,17 +1303,11 @@
         document.querySelector('.controls').style.pointerEvents = 'none';
         AudioManager.playCollisionSound();
         
-        // Attiva lo stato di ferito
         isHurt = true;
         
-        // Trova la sezione con il ramo che ha causato la collisione
-        const sectionIndex = bambooSections.findIndex(section => section.y === BAMBOO_BASE_Y);
-        const currentSection = bambooSections[sectionIndex];
-        
-        // Animazione semplice prima del game over
         setTimeout(() => {
           gameOver();
-        }, 250); // Attendi 250ms prima del game over per mostrare il ninja ferito
+        }, 250);
       }
 
       function slash(side) {
@@ -1373,23 +1323,19 @@
         isAttacking = true;
         attackTimer = 0;
         
-        // Controlla se stiamo colpendo un bonus
-        if (currentSection.hasBranch && currentSection.branchSide === side && currentSection.hasBonus) {
-          // La logica del bonus è gestita in checkCollisions
+        if (currentSection.hasBranch && currentSection.branchSide === side && currentSection.hasBonus && !currentSection.enemyIsFading) {
           checkCollisions(side);
           return;
         }
         
-        // Per colpi non-bonus
         AudioManager.playSlashSound();
         
         if (checkCollisions(side)) return;
         
-        if (currentSection.intact) {
+        if (currentSection.intact && !(currentSection.hasBonus && currentSection.enemyIsFading)) {
           currentSection.intact = false;
           currentSection.cutFromSide = side;
           
-          // Aggiungiamo punti solo se non è un bonus (perché i punti bonus sono già stati assegnati in checkCollisions)
           if (!(currentSection.hasBranch && currentSection.hasBonus)) {
             score++;
             energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN);
@@ -1419,14 +1365,13 @@
         score = 0;
         speed = 2;
         ninjaPosition = 'left';
-        isHurt = false; // Reset dello stato del ninja
+        isHurt = false;
         startScreen.style.display = 'none';
         document.querySelector('.controls').style.pointerEvents = 'auto';
         energy = MAX_ENERGY;
         currentEnergyDecay = INITIAL_ENERGY_DECAY;
-        cycleStartTime = Date.now(); // Resetta il ciclo giorno/notte
+        cycleStartTime = Date.now();
         
-        // Inizializza l'audio e carica i suoni
         AudioManager.init().then(() => {
           AudioManager.playIntroMusic();
         });
@@ -1452,7 +1397,6 @@
         }
       });
 
-      // Controlli touch per mobile
       leftBtn.addEventListener('touchstart', (e) => {
         e.preventDefault();
         slash('left');
@@ -1468,14 +1412,13 @@
         score = 0;
         speed = 2;
         ninjaPosition = 'left';
-        isHurt = false; // Reset dello stato del ninja
+        isHurt = false;
         startScreen.style.display = 'none';
         document.querySelector('.controls').style.pointerEvents = 'auto';
         energy = MAX_ENERGY;
         currentEnergyDecay = INITIAL_ENERGY_DECAY;
-        cycleStartTime = Date.now(); // Resetta il ciclo giorno/notte
+        cycleStartTime = Date.now();
         
-        // Riavvia la musica
         AudioManager.playIntroMusic();
         
         initializeBamboo();
