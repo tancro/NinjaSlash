@@ -1227,37 +1227,77 @@
           ctx.drawImage(signImage, x, y, boardWidth, boardHeight);
         }
         
-        const isDark = timeOfDay > 0.25 && timeOfDay < 0.75;
-        
         ctx.fillStyle = '#000000'; 
         ctx.font = 'bold 24px "Press Start 2P"';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(`${score}`, x + boardWidth/2, y + 45);
         
-        const barWidth = boardWidth * 0.3;
-        const barHeight = 15;
-        const barX = x + (boardWidth - barWidth) / 2;
-        const barY = y + 59;
+        // Barra dell'energia verticale
+        const barWidth = 10;
+        const barHeight = BAMBOO_SECTION_HEIGHT * 0.6;
+        const barX = canvas.width/2 - BAMBOO_WIDTH/2 + 25; // Sovrapposta al bambù, leggermente spostata a destra
+        const barY = BAMBOO_BASE_Y + (BAMBOO_SECTION_HEIGHT - barHeight) / 2; // Centrata verticalmente sulla sezione di base
         
-        ctx.fillStyle = '#333';
+        // Sfondo nero semi-trasparente con bordo luminoso
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
+        
+        // Bordo esterno luminoso con effetto 3D
+        const borderGradient = ctx.createLinearGradient(barX - 2, barY - 2, barX + barWidth + 2, barY + barHeight + 2);
+        borderGradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+        borderGradient.addColorStop(0.5, 'rgba(136, 136, 136, 0.8)');
+        borderGradient.addColorStop(1, 'rgba(255, 255, 255, 0.8)');
+        ctx.strokeStyle = borderGradient;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
+        
+        // Sfondo interno della barra
+        ctx.fillStyle = 'rgba(51, 51, 51, 0.8)';
         ctx.fillRect(barX, barY, barWidth, barHeight);
         
-        ctx.strokeStyle = isDark ? '#FFFFFF' : '#000000';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(barX, barY, barWidth, barHeight);
+        const fillHeight = (energy / MAX_ENERGY) * barHeight;
+        const energyY = barY + barHeight - fillHeight; // Riempi dal basso verso l'alto
         
-        const fillWidth = (energy / MAX_ENERGY) * barWidth;
-
-        if (energy > 30) {
-            ctx.fillStyle = '#00ff00';
-        } else if (energy > 10) {
-            ctx.fillStyle = '#ffaa00';
+        // Gradiente per la barra dell'energia con trasparenza
+        let gradient;
+        if (energy > MAX_ENERGY * 0.7) {
+            gradient = ctx.createLinearGradient(barX, energyY, barX, barY + barHeight);
+            gradient.addColorStop(0, 'rgba(0, 255, 0, 0.8)');
+            gradient.addColorStop(0.5, 'rgba(102, 255, 102, 0.8)');
+            gradient.addColorStop(1, 'rgba(0, 255, 0, 0.8)');
+        } else if (energy > MAX_ENERGY * 0.3) {
+            gradient = ctx.createLinearGradient(barX, energyY, barX, barY + barHeight);
+            gradient.addColorStop(0, 'rgba(255, 255, 0, 0.8)');
+            gradient.addColorStop(0.5, 'rgba(255, 170, 0, 0.8)');
+            gradient.addColorStop(1, 'rgba(255, 255, 0, 0.8)');
         } else {
-            ctx.fillStyle = '#ff0000';
+            gradient = ctx.createLinearGradient(barX, energyY, barX, barY + barHeight);
+            gradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)');
+            gradient.addColorStop(0.5, 'rgba(255, 102, 102, 0.8)');
+            gradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)');
         }
-
-        ctx.fillRect(barX, barY, fillWidth, barHeight);
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(barX, energyY, barWidth, fillHeight);
+        
+        // Effetto lucido
+        const shine = ctx.createLinearGradient(barX, energyY, barX + barWidth, energyY);
+        shine.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+        shine.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = shine;
+        ctx.fillRect(barX, energyY, barWidth, fillHeight);
+        
+        // Linee decorative orizzontali
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 5; i++) {
+            const y = barY + (barHeight * i / 5);
+            ctx.beginPath();
+            ctx.moveTo(barX, y);
+            ctx.lineTo(barX + barWidth, y);
+            ctx.stroke();
+        }
       }
 
       function draw() {
@@ -1274,10 +1314,10 @@
         
         drawFloor();
         drawBamboo();
+        drawScoreBoard();
         drawNinja();
         drawParticles();
         drawDayNightOverlay();
-        drawScoreBoard();
         drawFlashEffect();
         
         ctx.restore();
