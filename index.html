@@ -72,15 +72,54 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        /* background: rgba(0, 0, 0, 0.85); */
         color: #000000;
         text-align: center;
         padding: 30px;
         width: 80%;
-        /* border-radius: 15px;*/
         z-index: 3;
-        /* border: 3px solid #fff;*/
-        /* box-shadow: 0 0 30px rgba(0, 0, 0, 0.7);*/
+      }
+
+      #startScreen {
+        background-image: url('https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/start-screen-0cN4V5shFPgXrTHIESjnlafGMJgrrf.png?vDIC');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+      }
+
+      #startScreen h1 {
+        font-size: 36px;
+        margin-bottom: 30px;
+        color: #ffffff;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+        font-family: 'Press Start 2P', cursive;
+      }
+
+      #startScreen p {
+        font-size: 12px;
+        margin: 15px 0;
+        color: #ffffff;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+        font-family: 'Press Start 2P', cursive;
+        max-width: 600px;
+        line-height: 1.5;
+        background-color: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        border-radius: 10px;
+        position: absolute;
+        bottom: -5%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 75%;
       }
 
       .screen h1 {
@@ -125,20 +164,23 @@
       }
 
       .start-button {
-        margin-top: 30px;
+        position: absolute;
+        top: 250px;
         padding: 15px 30px;
         font-size: 24px;
         font-family: 'Press Start 2P', cursive;
-        background: rgba(210, 47, 34, 1);
+        background: rgba(210, 47, 34, 0.9);
         border: 3px solid #6c110a;
         border-radius: 10px;
         color: #ffffff;
         cursor: pointer;
         transition: transform 0.1s, background-color 0.2s;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
       }
 
       .start-button:hover {
-        background: #6c110a;
+        background: rgba(108, 17, 10, 0.9);
+        transform: scale(1.05);
       }
 
       .start-button:active {
@@ -213,11 +255,10 @@
         <div id="ui"></div>
         <div class="game-area">
         <canvas id="gameCanvas"></canvas>
-        <div id="startScreen" class="screen">
-            <h1>NINJA SLASH</h1>
-            <p>Cut the bamboo while avoiding the branches! Make sure to act before your energy runs out!</p>
-            <button class="start-button" onclick="startGame()">START</button>
         </div>
+        <div id="startScreen" class="screen">
+            <p>Cut the bamboo while avoiding the branches! Make sure to act before your energy runs out!<br>Hit the ninja to get more points!</p>
+            <button class="start-button" onclick="startGame()">START</button>
         </div>
         <div class="controls">
           <div id="leftBtn" class="control-btn">←</div>
