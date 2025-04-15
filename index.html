@@ -436,13 +436,15 @@
             }
         },
 
-        toggleMute() {
-            this.isMuted = !this.isMuted;
+        toggleMute(muted) {
+            this.isMuted = muted;
             if (this.bgMusicGainNode) {
                 this.bgMusicGainNode.gain.value = this.isMuted ? 0 : 0.1;
             }
-            if (!this.isMuted) {
+            if (!this.isMuted && gameState === 'playing' && !this.currentMusicSource) {
                 this.playLoopMusic();
+            } else if (this.isMuted && this.currentMusicSource) {
+                this.stopCurrentMusic();
             }
         }
     };
@@ -1373,7 +1375,8 @@
         cycleStartTime = Date.now();
         
         AudioManager.init().then(() => {
-          AudioManager.playIntroMusic();
+            AudioManager.isMuted = false; // Ensure audio starts unmuted
+            AudioManager.playIntroMusic();
         });
         
         initializeBamboo();
@@ -1424,10 +1427,9 @@
         initializeBamboo();
       });
 
+      // Add Farcade SDK mute handler
       window.FarcadeSDK.on('toggle_mute', (data) => {
-        isMuted = data.muted;
-        AudioManager.toggleMute();
-        console.log('Audio ' + (isMuted ? 'muted' : 'unmuted'));
+          AudioManager.toggleMute(data.isMuted);
       });
 
       gameLoop();
