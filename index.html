@@ -616,6 +616,68 @@
       let isMoving = false;
       let energy = MAX_ENERGY;
 
+      // Aggiungi dopo le altre variabili globali
+      let flashOpacity = 0;
+      let particles = [];
+      
+      class Particle {
+        constructor(x, y) {
+          this.x = x;
+          this.y = y;
+          this.vx = (Math.random() - 0.5) * 15;
+          this.vy = (Math.random() - 0.5) * 15;
+          this.alpha = 1;
+          this.size = Math.random() * 5 + 2;
+          this.color = `hsl(${Math.random() * 60 + 0}, 100%, 50%)`; // Colori tra rosso e giallo
+        }
+
+        update() {
+          this.x += this.vx;
+          this.y += this.vy;
+          this.alpha *= 0.92;
+          this.size *= 0.95;
+        }
+
+        draw() {
+          ctx.save();
+          ctx.globalAlpha = this.alpha;
+          ctx.fillStyle = this.color;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      function createExplosion(x, y) {
+        for (let i = 0; i < 30; i++) {
+          particles.push(new Particle(x, y));
+        }
+      }
+
+      function updateParticles() {
+        for (let i = particles.length - 1; i >= 0; i--) {
+          particles[i].update();
+          if (particles[i].alpha < 0.01) {
+            particles.splice(i, 1);
+          }
+        }
+      }
+
+      function drawParticles() {
+        particles.forEach(particle => particle.draw());
+      }
+
+      function drawFlashEffect() {
+        if (flashOpacity > 0) {
+          ctx.save();
+          ctx.fillStyle = `rgba(255, 255, 255, ${flashOpacity})`;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.restore();
+          flashOpacity *= 0.85;
+        }
+      }
+
       // Funzioni di easing
       function easeOutQuad(t) {
         return t * (2 - t);
@@ -1211,14 +1273,12 @@
         }
         
         drawFloor();
-        
         drawBamboo();
-        
         drawNinja();
-
+        drawParticles();
         drawDayNightOverlay();
-        
         drawScoreBoard();
+        drawFlashEffect();
         
         ctx.restore();
       }
@@ -1229,6 +1289,7 @@
       function update() {
         if (gameState !== 'playing') return;
         
+        updateParticles();
         timeOfDay = (Date.now() % DAY_DURATION) / DAY_DURATION;
         
         updateShake();
@@ -1313,8 +1374,15 @@
               currentSection.intact = false;
               currentSection.cutFromSide = side;
               score += 3;
-              startShake(5);
+              startShake(15);
               energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN * 2);
+              
+              // Aggiungi gli effetti quando colpisci il nemico
+              flashOpacity = 0.3;
+              const enemyX = side === 'left' ? 
+                canvas.width/2 - BAMBOO_WIDTH/2 - BRANCH_WIDTH : 
+                canvas.width/2 + BAMBOO_WIDTH/2 + BRANCH_WIDTH;
+              createExplosion(enemyX, currentSection.y + BAMBOO_SECTION_HEIGHT/2);
               
               setTimeout(() => {
                 if (gameState === 'playing') {
@@ -1322,6 +1390,8 @@
                   window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
                 }
               }, 100);
+              
+              return false;
             }
             return false;
           } else {
