@@ -278,7 +278,7 @@
 
       // Asset loading management (Moved to the top)
       let assetsLoaded = 0;
-      const totalAssets = 10; // Aggiornato a 10 per includere tutti gli sprite
+      const totalAssets = 11; // Aggiornato a 11 per includere il cane
 
       function assetLoaded(assetName) {
         assetsLoaded++;
@@ -615,6 +615,22 @@
         enemyOriginalWidth = enemyImage.naturalWidth;
         enemyOriginalHeight = enemyImage.naturalHeight;
         assetLoaded('enemy');
+      };
+
+      // Carica l'immagine del cane
+      const dogSprite = new Image();
+      dogSprite.crossOrigin = "anonymous";
+      dogSprite.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/dog-v0LUiLyIOwvUgKvI8HZstw48j5FR5K.png?hCWE';
+      let dogSpriteLoaded = false;
+      dogSprite.onload = () => {
+        dogSpriteLoaded = true;
+        DOG_FRAME_WIDTH = dogSprite.naturalWidth / DOG_SPRITE_FRAMES;
+        DOG_FRAME_HEIGHT = dogSprite.naturalHeight;
+        DOG_Y = FLOOR_Y - DOG_FRAME_HEIGHT; // Aggiorna Y basandosi sull'altezza reale
+        assetLoaded('dog-sprite');
+      };
+      dogSprite.onerror = () => {
+        console.error('Errore nel caricamento dello sprite del cane');
       };
 
       canvas.width = 500;
@@ -1460,6 +1476,7 @@
           ctx.fillRect(0, 0, canvas.width, FLOOR_Y);
         }
         
+        drawMovingDog(); // Sostituito drawMovingSquare con drawMovingDog
         drawFloor();
         drawBamboo();
         drawScoreBoard();
@@ -1471,13 +1488,14 @@
         ctx.restore();
       }
 
-      const ENEMY_LIFESPAN = 120;
+      const ENEMY_LIFESPAN = 130; // 2.5 secondi a 60 FPS
       const ENEMY_FADE_SPEED = 0.03;
 
       function update() {
         if (gameState !== 'playing') return;
         
         updateParticles();
+        updateDogState(); // Sostituito updateSquareState con updateDogState
         timeOfDay = (Date.now() % DAY_DURATION) / DAY_DURATION;
         
         updateShake();
@@ -1672,9 +1690,12 @@
         energy = MAX_ENERGY;
         currentEnergyDecay = INITIAL_ENERGY_DECAY;
         cycleStartTime = Date.now();
+        isDogActive = false;
+        lastDogDirection = 1; // Reset dell'ultima direzione
+        scheduleNextDog();
         
         AudioManager.init().then(() => {
-            AudioManager.isMuted = false; // Ensure audio starts unmuted
+            AudioManager.isMuted = false;
             AudioManager.playIntroMusic();
         });
         
@@ -1720,6 +1741,9 @@
         energy = MAX_ENERGY;
         currentEnergyDecay = INITIAL_ENERGY_DECAY;
         cycleStartTime = Date.now();
+        isDogActive = false;
+        lastDogDirection = 1; // Reset dell'ultima direzione
+        scheduleNextDog();
         
         AudioManager.playIntroMusic();
         
@@ -1730,6 +1754,95 @@
       window.FarcadeSDK.on('toggle_mute', (data) => {
           AudioManager.toggleMute(data.isMuted);
       });
+
+      // Costanti per il cane in movimento
+      const DOG_SPRITE_FRAMES = 6;
+      const DOG_ANIMATION_SPEED = 8;
+      const DOG_SPEED = 3;
+      let DOG_Y = FLOOR_Y - 50;
+      const MIN_DOG_INTERVAL = 10000;
+      const MAX_DOG_INTERVAL = 15000;
+      let dogX = -100;
+      let dogDirection = 1;
+      let lastDogDirection = 1; // Aggiungo variabile per tracciare l'ultima direzione
+      let isDogActive = false;
+      let nextDogTime = 0;
+      let currentDogFrame = 0;
+      let dogAnimationTimer = 0;
+
+      function scheduleNextDog() {
+        const randomInterval = Math.random() * (MAX_DOG_INTERVAL - MIN_DOG_INTERVAL) + MIN_DOG_INTERVAL;
+        nextDogTime = Date.now() + randomInterval;
+      }
+
+      function drawMovingDog() {
+        if (!isDogActive || !dogSpriteLoaded) return;
+
+        // Aggiorna frame animazione
+        dogAnimationTimer++;
+        if (dogAnimationTimer >= DOG_ANIMATION_SPEED) {
+          currentDogFrame = (currentDogFrame + 1) % DOG_SPRITE_FRAMES;
+          dogAnimationTimer = 0;
+        }
+
+        const srcX = currentDogFrame * DOG_FRAME_WIDTH;
+        const srcY = 0;
+        
+        // Dimensioni aumentate del 200%
+        const scaledWidth = DOG_FRAME_WIDTH * 2;
+        const scaledHeight = DOG_FRAME_HEIGHT * 2;
+        // Aggiustiamo la posizione Y per mantenere il cane allineato con il pavimento
+        const scaledY = FLOOR_Y - scaledHeight;
+
+        ctx.save();
+        if (dogDirection === -1) {
+            ctx.translate(dogX + scaledWidth, scaledY);
+            ctx.scale(-2, 2); // Scala negativa per il flip, moltiplicata per 2 per l'ingrandimento
+            ctx.drawImage(
+                dogSprite,
+                srcX, srcY, DOG_FRAME_WIDTH, DOG_FRAME_HEIGHT,
+                0, 0, DOG_FRAME_WIDTH, DOG_FRAME_HEIGHT
+            );
+        } else {
+            ctx.translate(dogX, scaledY);
+            ctx.scale(2, 2); // Scala positiva moltiplicata per 2 per l'ingrandimento
+            ctx.drawImage(
+                dogSprite,
+                srcX, srcY, DOG_FRAME_WIDTH, DOG_FRAME_HEIGHT,
+                0, 0, DOG_FRAME_WIDTH, DOG_FRAME_HEIGHT
+            );
+        }
+        ctx.restore();
+
+        // Aggiorna la posizione considerando la scala
+        dogX += DOG_SPEED * dogDirection;
+
+        // Controlla se il cane è uscito completamente dallo schermo considerando la nuova dimensione
+        if ((dogDirection === 1 && dogX > canvas.width) ||
+            (dogDirection === -1 && dogX < -scaledWidth)) {
+          isDogActive = false;
+          scheduleNextDog();
+        }
+      }
+
+      function updateDogState() {
+        if (!isDogActive && Date.now() >= nextDogTime && dogSpriteLoaded) {
+          isDogActive = true;
+          currentDogFrame = 0;
+          dogAnimationTimer = 0;
+          
+          // Inverti la direzione rispetto all'ultima volta
+          dogDirection = -lastDogDirection;
+          lastDogDirection = dogDirection;
+          
+          // Imposta la posizione iniziale in base alla direzione
+          if (dogDirection === 1) {
+            dogX = -DOG_FRAME_WIDTH * 2; // Moltiplico per 2 per considerare la scala
+          } else {
+            dogX = canvas.width;
+          }
+        }
+      }
 
       gameLoop();
     </script>
