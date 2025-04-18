@@ -276,6 +276,21 @@
       const leftBtn = document.getElementById('leftBtn');
       const rightBtn = document.getElementById('rightBtn');
 
+      // Asset loading management (Moved to the top)
+      let assetsLoaded = 0;
+      const totalAssets = 10; // Aggiornato a 10 per includere tutti gli sprite
+
+      function assetLoaded(assetName) {
+        assetsLoaded++;
+        console.log(`Asset caricato: ${assetName} (${assetsLoaded}/${totalAssets})`);
+        if (assetsLoaded === totalAssets) {
+          console.log('Tutti gli asset sono stati caricati! Ready to start.');
+          // Potremmo mostrare il bottone start qui o abilitarlo
+          // startScreen.style.display = 'flex'; // Assicurati sia visibile
+          // document.querySelector('.start-button').disabled = false; // Abilita bottone
+        }
+      }
+
       let audioContext = null;
       let isMuted = false;
 
@@ -496,6 +511,7 @@
       let bambooImageLoaded = false;
       bambooImage.onload = () => {
         bambooImageLoaded = true;
+        assetLoaded('bamboo');
       };
 
       // Carica l'immagine del bambù tagliato
@@ -504,6 +520,7 @@
       let bambooImageCutLoaded = false;
       bambooImageCut.onload = () => {
         bambooImageCutLoaded = true;
+        assetLoaded('bamboo-cut');
       };
 
       // Carica l'immagine del ninja idle animation
@@ -543,6 +560,7 @@
       let leafImageLoaded = false;
       leafImage.onload = () => {
         leafImageLoaded = true;
+        assetLoaded('leaf');
       };
 
       // Carica l'immagine dell'erba per il pavimento
@@ -551,6 +569,7 @@
       let grassImageLoaded = false;
       grassImage.onload = () => {
         grassImageLoaded = true;
+        assetLoaded('grass');
       };
 
       // Carica l'immagine dello sfondo
@@ -559,6 +578,7 @@
       let backgroundImageLoaded = false;
       backgroundImage.onload = () => {
         backgroundImageLoaded = true;
+        assetLoaded('background');
       };
 
       // Carica l'immagine del cartello
@@ -567,6 +587,7 @@
       let signImageLoaded = false;
       signImage.onload = () => {
         signImageLoaded = true;
+        assetLoaded('sign');
       };
 
       // Carica l'immagine del ninja ferito (NUOVO SPRITE)
@@ -593,6 +614,7 @@
         enemyImageLoaded = true;
         enemyOriginalWidth = enemyImage.naturalWidth;
         enemyOriginalHeight = enemyImage.naturalHeight;
+        assetLoaded('enemy');
       };
 
       canvas.width = 500;
