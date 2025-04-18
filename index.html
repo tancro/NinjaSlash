@@ -506,22 +506,35 @@
         bambooImageCutLoaded = true;
       };
 
-      // Carica l'immagine del ninja idle
-      const ninjaImage = new Image();
-      ninjaImage.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/idle-5J9WKcZMUknMaObfJXQwIcnZgGi3bM.png?U9UD';
-      let ninjaImageLoaded = false;
-      ninjaImage.onload = () => {
-        ninjaImageLoaded = true;
-        console.log('Ninja idle image loaded successfully');
+      // Carica l'immagine del ninja idle animation
+      const ninjaIdleSprite = new Image();
+      ninjaIdleSprite.crossOrigin = "anonymous";
+      ninjaIdleSprite.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/stand-sprite-CPoWKWVwoBJKiaKrnfsJ3eHr826FDm.png?MOGq'; // Nuovo URL
+      let ninjaIdleSpriteLoaded = false;
+      ninjaIdleSprite.onload = () => {
+        ninjaIdleSpriteLoaded = true;
+        // Imposta le dimensioni fisse come specificato
+        NINJA_IDLE_FRAME_WIDTH = 55;
+        NINJA_IDLE_FRAME_HEIGHT = 100;
+        assetLoaded('ninja-idle');
+        console.log('Ninja idle spritesheet loaded. Frame size:', NINJA_IDLE_FRAME_WIDTH, NINJA_IDLE_FRAME_HEIGHT);
+      };
+      ninjaIdleSprite.onerror = () => {
+        console.error('Errore nel caricamento dello sprite idle');
       };
 
-      // Carica l'immagine del ninja che attacca
-      const ninjaAttackImage = new Image();
-      ninjaAttackImage.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/attack-E72b1c6njt21U90blvO37EPvJgOQQC.png?QeT0';
-      let ninjaAttackImageLoaded = false;
-      ninjaAttackImage.onload = () => {
-        ninjaAttackImageLoaded = true;
-        console.log('Ninja attack image loaded successfully');
+      // Carica l'immagine del ninja che attacca (NUOVO SPRITE)
+      const ninjaAttackSprite = new Image();
+      ninjaAttackSprite.crossOrigin = "anonymous";
+      ninjaAttackSprite.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/attack-sprite-fKAJsLfxEl5Zx1yMc4wkANTVXlFGoi.png?GUDi';
+      let ninjaAttackSpriteLoaded = false;
+      ninjaAttackSprite.onload = () => {
+        ninjaAttackSpriteLoaded = true;
+        assetLoaded('ninja-attack-sprite');
+        console.log('Ninja attack spritesheet loaded');
+      };
+      ninjaAttackSprite.onerror = () => {
+        console.error('Errore nel caricamento dello sprite di attacco');
       };
 
       // Carica l'immagine della foglia
@@ -619,6 +632,20 @@
       // Aggiungi dopo le altre variabili globali
       let flashOpacity = 0;
       let particles = [];
+      
+      // Costanti per l'animazione idle
+      let NINJA_IDLE_FRAME_WIDTH = 55;
+      let NINJA_IDLE_FRAME_HEIGHT = 100;
+      const IDLE_ANIMATION_SPEED = 10;
+      const IDLE_FRAME_COUNT = 4;
+      let currentIdleFrame = 0;
+      let idleAnimationTimer = 0;
+      
+      // Costanti per l'animazione di attacco
+      const ATTACK_FRAME_WIDTH = 140;
+      const ATTACK_FRAME_HEIGHT = 100;
+      const ATTACK_FRAME_COUNT = 7;
+      const ATTACK_ANIMATION_SPEED = Math.floor(ATTACK_DURATION / ATTACK_FRAME_COUNT) || 1; // Sincronizza con ATTACK_DURATION
       
       class Particle {
         constructor(x, y) {
@@ -963,70 +990,124 @@
       }
 
       function drawNinja() {
-        const ninjaWidth = NINJA_SIZE/2;
-        const attackWidth = 145;
-        const hurtWidth = NINJA_SIZE/2;
-        
-        const baseX = ninjaPosition === 'left' ? 
-          canvas.width/2 - BAMBOO_WIDTH/2 - ninjaWidth - 15 : 
-          canvas.width/2 + BAMBOO_WIDTH/2 + 15;
-        
-        const attackProgress = attackTimer / ATTACK_DURATION;
-        const easeAttackProgress = easeOutQuad(attackProgress);
-        const attackOffset = isAttacking && !isHurt ? 
-          (ATTACK_MOVEMENT * (1 - easeAttackProgress)) : 0;
-        
-        const drawX = ninjaPosition === 'left' ? 
-          baseX - (isAttacking && !isHurt ? (attackWidth - ninjaWidth) : 0) + attackOffset : 
-          baseX - attackOffset;
-        
-        let currentNinjaImage;
-        let imageLoaded;
-        let currentWidth;
+        const ninjaDrawWidth = NINJA_SIZE / 2; // Larghezza idle (50px)
+        const attackWidth = ATTACK_FRAME_WIDTH; // Larghezza attacco = larghezza frame sprite (140px)
+        const hurtWidth = NINJA_SIZE / 2; // Larghezza ferito
+
+        const baseX = ninjaPosition === 'left' ?
+          canvas.width / 2 - BAMBOO_WIDTH / 2 - ninjaDrawWidth - 15 : // Posizione base per idle/hurt
+          canvas.width / 2 + BAMBOO_WIDTH / 2 + 15;
+
+        // Logica per calcolare drawX in base allo stato
+        let drawX = baseX;
+        let currentDrawWidth = ninjaDrawWidth; // Larghezza di disegno base
 
         if (isHurt) {
-          currentNinjaImage = ninjaHurtImage;
-          imageLoaded = ninjaHurtImageLoaded;
-          currentWidth = hurtWidth;
-          isAttacking = false;
-          attackTimer = 0;
-        } else if (isAttacking && ninjaAttackImageLoaded) {
-          currentNinjaImage = ninjaAttackImage;
-          imageLoaded = ninjaAttackImageLoaded;
-          currentWidth = attackWidth;
-        } else {
-          currentNinjaImage = ninjaImage;
-          imageLoaded = ninjaImageLoaded;
-          currentWidth = ninjaWidth;
+            currentDrawWidth = hurtWidth;
+        } else if (isAttacking) {
+            currentDrawWidth = attackWidth; // Usa larghezza attacco
+            const attackProgress = attackTimer / ATTACK_DURATION;
+            const easeAttackProgress = easeOutQuad(attackProgress);
+            const attackOffset = ATTACK_MOVEMENT * (1 - easeAttackProgress);
+            // Adatta drawX per la larghezza maggiore dell'attacco e aggiungi offset verso il tronco
+            drawX = ninjaPosition === 'left' ?
+                baseX - (attackWidth - ninjaDrawWidth) + attackOffset + 20 : // Sposta a dx (verso il tronco)
+                baseX - attackOffset - 20; // Sposta a sx (verso il tronco)
         }
-        
-        if (imageLoaded) {
-          ctx.save();
-          if (ninjaPosition === 'right') {
-            ctx.translate(drawX + currentWidth, NINJA_Y);
-            ctx.scale(-1, 1);
-            ctx.drawImage(currentNinjaImage, 0, 0, currentWidth, NINJA_SIZE);
-          } else {
-            ctx.drawImage(currentNinjaImage, drawX, NINJA_Y, currentWidth, NINJA_SIZE);
+
+        // Aggiorna il frame dell'animazione idle SOLO se non sta attaccando e non è ferito
+        if (!isAttacking && !isHurt) {
+          idleAnimationTimer++;
+          if (idleAnimationTimer >= IDLE_ANIMATION_SPEED) {
+            currentIdleFrame = (currentIdleFrame + 1) % IDLE_FRAME_COUNT;
+            idleAnimationTimer = 0;
           }
-          ctx.restore();
-        } else {
-          ctx.fillStyle = isHurt ? '#FF0000' : '#2F4F4F';
-          ctx.strokeStyle = '#000000';
-          ctx.lineWidth = 2;
-          ctx.fillRect(drawX, NINJA_Y, currentWidth, NINJA_SIZE);
-          ctx.strokeRect(drawX, NINJA_Y, currentWidth, NINJA_SIZE);
-          
-          ctx.fillStyle = '#FF0000';
-          ctx.fillRect(drawX, NINJA_Y + NINJA_SIZE/2 - 5, currentWidth, 10);
-          
-          const faceX = drawX + currentWidth/4;
-          const faceY = NINJA_Y + NINJA_SIZE/4;
-          
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(faceX + 2, faceY, 3, 2);
-          ctx.fillRect(faceX + currentWidth/4, faceY, 3, 2);
         }
+
+        ctx.save();
+
+        // --- Gestione disegno in base allo stato --- 
+
+        if (isHurt) {
+            // Disegna il ninja ferito
+            if (ninjaHurtImageLoaded) {
+                if (ninjaPosition === 'right') {
+                    ctx.translate(drawX + hurtWidth, NINJA_Y);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(ninjaHurtImage, 0, 0, hurtWidth, NINJA_SIZE);
+                } else {
+                    ctx.drawImage(ninjaHurtImage, drawX, NINJA_Y, hurtWidth, NINJA_SIZE);
+                }
+            } else { // Fallback ferito
+                ctx.fillStyle = '#FF0000';
+                ctx.fillRect(drawX, NINJA_Y, hurtWidth, NINJA_SIZE);
+            }
+        } else if (isAttacking) {
+            // Disegna il ninja che attacca usando lo spritesheet
+            if (ninjaAttackSpriteLoaded) {
+                // Calcola il frame corrente basato sul timer dell'attacco
+                const currentAttackFrame = Math.min(ATTACK_FRAME_COUNT - 1, Math.floor(attackTimer / ATTACK_ANIMATION_SPEED));
+                
+                const srcX = currentAttackFrame * ATTACK_FRAME_WIDTH;
+                const srcY = 0;
+                const srcWidth = ATTACK_FRAME_WIDTH;
+                const srcHeight = ATTACK_FRAME_HEIGHT;
+
+                const destWidth = attackWidth; // Disegna alla larghezza del frame di attacco
+                const destHeight = NINJA_SIZE; // Altezza standard
+
+                 if (ninjaPosition === 'right') {
+                    ctx.translate(drawX + destWidth, NINJA_Y);
+                    ctx.scale(-1, 1);
+                     ctx.drawImage(
+                        ninjaAttackSprite,
+                        srcX, srcY, srcWidth, srcHeight, // Source
+                        0, 0, destWidth, destHeight // Destination
+                    );
+                 } else {
+                    ctx.drawImage(
+                        ninjaAttackSprite,
+                        srcX, srcY, srcWidth, srcHeight, // Source
+                        drawX, NINJA_Y, destWidth, destHeight // Destination
+                    );
+                 }
+            } else { // Fallback attacco
+                 ctx.fillStyle = '#FFA500';
+                 ctx.fillRect(drawX, NINJA_Y, attackWidth, NINJA_SIZE);
+            }
+        } else {
+            // Disegna il ninja in stato Idle usando lo spritesheet
+            if (ninjaIdleSpriteLoaded) {
+                const srcX = currentIdleFrame * NINJA_IDLE_FRAME_WIDTH;
+                const srcY = 0;
+                const srcWidth = NINJA_IDLE_FRAME_WIDTH;
+                const srcHeight = NINJA_IDLE_FRAME_HEIGHT;
+
+                const destWidth = ninjaDrawWidth; // Disegna alla larghezza standard
+                const destHeight = NINJA_SIZE;
+
+                if (ninjaPosition === 'right') {
+                    ctx.translate(drawX + destWidth, NINJA_Y);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(
+                        ninjaIdleSprite,
+                        srcX, srcY, srcWidth, srcHeight, // Porzione dello sprite da ritagliare
+                        0, 0, destWidth, destHeight // Dove e quanto grande disegnare sul canvas
+                    );
+                } else {
+                     ctx.drawImage(
+                        ninjaIdleSprite,
+                        srcX, srcY, srcWidth, srcHeight, // Porzione dello sprite da ritagliare
+                        drawX, NINJA_Y, destWidth, destHeight // Dove e quanto grande disegnare sul canvas
+                    );
+                }
+            } else { // Fallback idle (se lo sprite non è ancora caricato)
+                ctx.fillStyle = '#2F4F4F';
+                ctx.fillRect(drawX, NINJA_Y, ninjaDrawWidth, NINJA_SIZE);
+            }
+        }
+
+        ctx.restore();
       }
 
       function drawFloor() {
@@ -1231,7 +1312,7 @@
         ctx.font = 'bold 24px "Press Start 2P"';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(`${score}`, x + boardWidth/2, y + 45);
+        ctx.fillText(`${score}`, x + boardWidth/2, y + 55);
         
         // Barra dell'energia verticale
         const barWidth = 10;
