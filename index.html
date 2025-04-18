@@ -569,12 +569,18 @@
         signImageLoaded = true;
       };
 
-      // Carica l'immagine del ninja ferito
-      const ninjaHurtImage = new Image();
-      ninjaHurtImage.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/hurt-Fnr4DG5aqmJTwrqakzAg2qOc2bxQnK.png?LYzb';
-      let ninjaHurtImageLoaded = false;
-      ninjaHurtImage.onload = () => {
-        ninjaHurtImageLoaded = true;
+      // Carica l'immagine del ninja ferito (NUOVO SPRITE)
+      const ninjaHurtSprite = new Image();
+      ninjaHurtSprite.crossOrigin = "anonymous";
+      ninjaHurtSprite.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/hurt-sprite-1THawOa2oLe96YxIRAdHW9gXeOt9Yf.png?o6xt';
+      let ninjaHurtSpriteLoaded = false;
+      ninjaHurtSprite.onload = () => {
+        ninjaHurtSpriteLoaded = true;
+        assetLoaded('ninja-hurt-sprite');
+        console.log('Ninja hurt spritesheet loaded');
+      };
+      ninjaHurtSprite.onerror = () => {
+        console.error('Errore nel caricamento dello sprite hurt');
       };
 
       // Carica l'immagine del nemico (ninja cattivo)
@@ -647,6 +653,14 @@
       const ATTACK_FRAME_COUNT = 7;
       const ATTACK_ANIMATION_SPEED = Math.floor(ATTACK_DURATION / ATTACK_FRAME_COUNT) || 1; // Sincronizza con ATTACK_DURATION
       
+      // Costanti per l'animazione hurt
+      const HURT_FRAME_WIDTH = 54;
+      const HURT_FRAME_HEIGHT = 100;
+      const HURT_FRAME_COUNT = 3;
+      const HURT_ANIMATION_SPEED = 5; // Velocità dell'animazione hurt
+      let currentHurtFrame = 0;
+      let hurtAnimationTimer = 0;
+
       class Particle {
         constructor(x, y) {
           this.x = x;
@@ -1006,6 +1020,9 @@
             currentDrawWidth = hurtWidth;
         } else if (isAttacking) {
             currentDrawWidth = attackWidth; // Usa larghezza attacco
+            // Reset hurt animation state if we start attacking
+            currentHurtFrame = 0;
+            hurtAnimationTimer = 0;
             const attackProgress = attackTimer / ATTACK_DURATION;
             const easeAttackProgress = easeOutQuad(attackProgress);
             const attackOffset = ATTACK_MOVEMENT * (1 - easeAttackProgress);
@@ -1022,6 +1039,18 @@
             currentIdleFrame = (currentIdleFrame + 1) % IDLE_FRAME_COUNT;
             idleAnimationTimer = 0;
           }
+          // Reset hurt animation state if we are idle
+          currentHurtFrame = 0;
+          hurtAnimationTimer = 0;
+        } else if (isHurt) {
+          // Aggiorna il frame dell'animazione hurt, ma blocca sull'ultimo frame
+          if (currentHurtFrame < HURT_FRAME_COUNT - 1) { 
+            hurtAnimationTimer++;
+            if (hurtAnimationTimer >= HURT_ANIMATION_SPEED) {
+              currentHurtFrame++;
+              hurtAnimationTimer = 0;
+            }
+          }
         }
 
         ctx.save();
@@ -1029,14 +1058,30 @@
         // --- Gestione disegno in base allo stato --- 
 
         if (isHurt) {
-            // Disegna il ninja ferito
-            if (ninjaHurtImageLoaded) {
+            // Disegna il ninja ferito usando lo spritesheet
+            if (ninjaHurtSpriteLoaded) {
+                const srcX = currentHurtFrame * HURT_FRAME_WIDTH;
+                const srcY = 0;
+                const srcWidth = HURT_FRAME_WIDTH;
+                const srcHeight = HURT_FRAME_HEIGHT;
+
+                const destWidth = hurtWidth; // Usa la larghezza definita per hurt
+                const destHeight = NINJA_SIZE;
+
                 if (ninjaPosition === 'right') {
-                    ctx.translate(drawX + hurtWidth, NINJA_Y);
+                    ctx.translate(drawX + destWidth, NINJA_Y);
                     ctx.scale(-1, 1);
-                    ctx.drawImage(ninjaHurtImage, 0, 0, hurtWidth, NINJA_SIZE);
+                    ctx.drawImage(
+                        ninjaHurtSprite,
+                        srcX, srcY, srcWidth, srcHeight, // Source
+                        0, 0, destWidth, destHeight // Destination
+                    );
                 } else {
-                    ctx.drawImage(ninjaHurtImage, drawX, NINJA_Y, hurtWidth, NINJA_SIZE);
+                     ctx.drawImage(
+                        ninjaHurtSprite,
+                        srcX, srcY, srcWidth, srcHeight, // Source
+                        drawX, NINJA_Y, destWidth, destHeight // Destination
+                    );
                 }
             } else { // Fallback ferito
                 ctx.fillStyle = '#FF0000';
