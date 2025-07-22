@@ -677,6 +677,14 @@
       let flashOpacity = 0;
       let particles = [];
       
+      // Sistema Saggezza del Maestro
+      let preciseCuts = 0;
+      const PRECISE_CUTS_NEEDED = 10;
+      const PRECISION_THRESHOLD = 0.5; // 50% energia = taglio preciso
+      let wisdomEffectActive = false;
+      let wisdomEffectTimer = 0;
+      const WISDOM_EFFECT_DURATION = 600; // 10 secondi a 60 FPS
+      
       // Costanti per l'animazione idle
       let NINJA_IDLE_FRAME_WIDTH = 55;
       let NINJA_IDLE_FRAME_HEIGHT = 100;
@@ -768,6 +776,24 @@
 
       function easeInOutCubic(t) {
         return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      }
+
+      function activateMasterWisdom() {
+        // Rallentamento barra energia (non bambù)
+        wisdomEffectActive = true;
+        wisdomEffectTimer = 0;
+        
+        // Bonus punti
+        score += 10;
+        
+        // Effetti visivi
+        flashOpacity = 0.3;
+        startShake(10);
+        
+        // Effetto sonoro (usa il suono di taglio come fallback)
+        AudioManager.playSlashSound();
+        
+        console.log('Saggezza del Maestro attivata! +10 punti, energia rallentata');
       }
 
       class BambooSection {
@@ -1462,6 +1488,66 @@
             ctx.lineTo(barX + barWidth, y);
             ctx.stroke();
         }
+        
+        // Barra di Saggezza del Maestro
+        const wisdomBarWidth = 6; // Più fine della barra energia
+        const wisdomBarHeight = BAMBOO_SECTION_HEIGHT * 0.6;
+        const wisdomBarX = canvas.width/2 - BAMBOO_WIDTH/2 - 15; // Più vicina alla barra energia
+        const wisdomBarY = barY - wisdomBarHeight - 20; // Sopra la barra dell'energia
+        
+        // Sfondo nero semi-trasparente con bordo luminoso
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(wisdomBarX - 2, wisdomBarY - 2, wisdomBarWidth + 4, wisdomBarHeight + 4);
+        
+        // Bordo esterno luminoso dorato
+        const wisdomBorderGradient = ctx.createLinearGradient(wisdomBarX - 2, wisdomBarY - 2, wisdomBarX + wisdomBarWidth + 2, wisdomBarY + wisdomBarHeight + 2);
+        wisdomBorderGradient.addColorStop(0, 'rgba(255, 215, 0, 0.8)'); // Oro
+        wisdomBorderGradient.addColorStop(0.5, 'rgba(255, 165, 0, 0.8)'); // Arancione
+        wisdomBorderGradient.addColorStop(1, 'rgba(255, 215, 0, 0.8)'); // Oro
+        ctx.strokeStyle = wisdomBorderGradient;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(wisdomBarX - 2, wisdomBarY - 2, wisdomBarWidth + 4, wisdomBarHeight + 4);
+        
+        // Sfondo interno della barra
+        ctx.fillStyle = 'rgba(51, 51, 51, 0.8)';
+        ctx.fillRect(wisdomBarX, wisdomBarY, wisdomBarWidth, wisdomBarHeight);
+        
+        // Calcola il riempimento basato sui tagli precisi
+        const wisdomFillHeight = (preciseCuts / PRECISE_CUTS_NEEDED) * wisdomBarHeight;
+        const wisdomFillY = wisdomBarY + wisdomBarHeight - wisdomFillHeight;
+        
+        // Gradiente dorato per la barra di saggezza
+        const wisdomGradient = ctx.createLinearGradient(wisdomBarX, wisdomFillY, wisdomBarX, wisdomBarY + wisdomBarHeight);
+        wisdomGradient.addColorStop(0, 'rgba(255, 215, 0, 0.9)'); // Oro
+        wisdomGradient.addColorStop(0.5, 'rgba(255, 165, 0, 0.9)'); // Arancione
+        wisdomGradient.addColorStop(1, 'rgba(255, 215, 0, 0.9)'); // Oro
+        ctx.fillStyle = wisdomGradient;
+        ctx.fillRect(wisdomBarX, wisdomFillY, wisdomBarWidth, wisdomFillHeight);
+        
+        // Effetto lucido
+        const wisdomShine = ctx.createLinearGradient(wisdomBarX, wisdomFillY, wisdomBarX + wisdomBarWidth, wisdomFillY);
+        wisdomShine.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+        wisdomShine.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = wisdomShine;
+        ctx.fillRect(wisdomBarX, wisdomFillY, wisdomBarWidth, wisdomFillHeight);
+        
+        // Linee decorative orizzontali per la barra di saggezza
+        ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 5; i++) {
+            const y = wisdomBarY + (wisdomBarHeight * i / 5);
+            ctx.beginPath();
+            ctx.moveTo(wisdomBarX, y);
+            ctx.lineTo(wisdomBarX + wisdomBarWidth, y);
+            ctx.stroke();
+        }
+        
+        // Etichetta "Saggezza"
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.9)';
+        ctx.font = 'bold 10px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('SAG', wisdomBarX + wisdomBarWidth/2, wisdomBarY - 10);
       }
 
       function draw() {
@@ -1500,6 +1586,26 @@
         
         updateShake();
         
+        // Gestione effetto Saggezza del Maestro
+        if (wisdomEffectActive) {
+          wisdomEffectTimer++;
+          
+          // Diminuisce gradualmente la barra di saggezza
+          const wisdomProgress = 1 - (wisdomEffectTimer / WISDOM_EFFECT_DURATION);
+          preciseCuts = Math.floor(PRECISE_CUTS_NEEDED * wisdomProgress);
+          
+          if (wisdomEffectTimer >= WISDOM_EFFECT_DURATION) {
+            wisdomEffectActive = false;
+            preciseCuts = 0; // Reset completo
+            console.log('Effetto Saggezza del Maestro terminato');
+          }
+        }
+        
+        // Reset contatore tagli precisi se energia troppo bassa (solo se l'effetto non è attivo)
+        if (!wisdomEffectActive && energy < MAX_ENERGY * 0.3) {
+          preciseCuts = 0;
+        }
+        
         if (score <= 10) {
             currentEnergyDecay = INITIAL_ENERGY_DECAY;
         } else if (score <= 75) {
@@ -1508,7 +1614,10 @@
             currentEnergyDecay = HARD_ENERGY_DECAY;
         }
         
-        energy = Math.max(0, energy - currentEnergyDecay);
+        // Blocca completamente la barra dell'energia quando la saggezza è attiva
+        if (!wisdomEffectActive) {
+          energy = Math.max(0, energy - currentEnergyDecay);
+        }
         
         if (energy <= 0) {
             startShake(20);
@@ -1656,7 +1765,23 @@
           currentSection.cutFromSide = side;
           
           if (!(currentSection.hasBranch && currentSection.hasBonus)) {
-            score++;
+            // Moltiplicatore punti x2 quando la barra di saggezza è piena
+            const pointMultiplier = (preciseCuts >= PRECISE_CUTS_NEEDED) ? 2 : 1;
+            score += pointMultiplier;
+            
+            // Sistema Saggezza del Maestro - Contatore tagli precisi (solo se l'effetto non è attivo)
+            if (!wisdomEffectActive && energy > MAX_ENERGY * PRECISION_THRESHOLD && preciseCuts < PRECISE_CUTS_NEEDED) {
+              preciseCuts++;
+              console.log(`Taglio preciso! ${preciseCuts}/${PRECISE_CUTS_NEEDED}`);
+              if (preciseCuts >= PRECISE_CUTS_NEEDED) {
+                // Barra piena - attiva automaticamente il potere
+                activateMasterWisdom();
+                console.log('Barra di saggezza piena! Potere attivato automaticamente');
+              }
+            } else if (!wisdomEffectActive && energy <= MAX_ENERGY * PRECISION_THRESHOLD && preciseCuts < PRECISE_CUTS_NEEDED) {
+              preciseCuts = 0; // Reset se taglio non preciso (solo se non è già piena)
+            }
+            
             energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN);
           }
           
@@ -1693,6 +1818,11 @@
         isDogActive = false;
         lastDogDirection = 1; // Reset dell'ultima direzione
         scheduleNextDog();
+        
+        // Reset sistema Saggezza del Maestro
+        preciseCuts = 0;
+        wisdomEffectActive = false;
+        wisdomEffectTimer = 0;
         
         AudioManager.init().then(() => {
             AudioManager.isMuted = false;
@@ -1744,6 +1874,11 @@
         isDogActive = false;
         lastDogDirection = 1; // Reset dell'ultima direzione
         scheduleNextDog();
+        
+        // Reset sistema Saggezza del Maestro
+        preciseCuts = 0;
+        wisdomEffectActive = false;
+        wisdomEffectTimer = 0;
         
         AudioManager.playIntroMusic();
         
