@@ -685,6 +685,10 @@
       let wisdomEffectTimer = 0;
       const WISDOM_EFFECT_DURATION = 600; // 10 secondi a 60 FPS
       
+      // Effetti visivi saggezza
+      let wisdomBarBlinkTimer = 0;
+      const WISDOM_BLINK_SPEED = 8; // Velocità lampeggio
+      
       // Costanti per l'animazione idle
       let NINJA_IDLE_FRAME_WIDTH = 55;
       let NINJA_IDLE_FRAME_HEIGHT = 100;
@@ -1117,6 +1121,8 @@
           }
         }
 
+
+
         ctx.save();
 
         // --- Gestione disegno in base allo stato --- 
@@ -1516,11 +1522,18 @@
         const wisdomFillHeight = (preciseCuts / PRECISE_CUTS_NEEDED) * wisdomBarHeight;
         const wisdomFillY = wisdomBarY + wisdomBarHeight - wisdomFillHeight;
         
+        // Effetto lampeggio quando l'effetto è attivo
+        let wisdomOpacity = 0.9;
+        if (wisdomEffectActive) {
+          const blinkPhase = Math.sin(wisdomBarBlinkTimer / WISDOM_BLINK_SPEED) * 0.5 + 0.5;
+          wisdomOpacity = 0.3 + (blinkPhase * 0.7); // Lampeggia tra 0.3 e 1.0
+        }
+        
         // Gradiente dorato per la barra di saggezza
         const wisdomGradient = ctx.createLinearGradient(wisdomBarX, wisdomFillY, wisdomBarX, wisdomBarY + wisdomBarHeight);
-        wisdomGradient.addColorStop(0, 'rgba(255, 215, 0, 0.9)'); // Oro
-        wisdomGradient.addColorStop(0.5, 'rgba(255, 165, 0, 0.9)'); // Arancione
-        wisdomGradient.addColorStop(1, 'rgba(255, 215, 0, 0.9)'); // Oro
+        wisdomGradient.addColorStop(0, `rgba(255, 215, 0, ${wisdomOpacity})`); // Oro
+        wisdomGradient.addColorStop(0.5, `rgba(255, 165, 0, ${wisdomOpacity})`); // Arancione
+        wisdomGradient.addColorStop(1, `rgba(255, 215, 0, ${wisdomOpacity})`); // Oro
         ctx.fillStyle = wisdomGradient;
         ctx.fillRect(wisdomBarX, wisdomFillY, wisdomBarWidth, wisdomFillHeight);
         
@@ -1541,13 +1554,6 @@
             ctx.lineTo(wisdomBarX + wisdomBarWidth, y);
             ctx.stroke();
         }
-        
-        // Etichetta "Saggezza"
-        ctx.fillStyle = 'rgba(255, 215, 0, 0.9)';
-        ctx.font = 'bold 10px "Press Start 2P"';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('SAG', wisdomBarX + wisdomBarWidth/2, wisdomBarY - 10);
       }
 
       function draw() {
@@ -1571,6 +1577,8 @@
         drawDayNightOverlay();
         drawFlashEffect();
         
+
+        
         ctx.restore();
       }
 
@@ -1590,9 +1598,15 @@
         if (wisdomEffectActive) {
           wisdomEffectTimer++;
           
-          // Diminuisce gradualmente la barra di saggezza
-          const wisdomProgress = 1 - (wisdomEffectTimer / WISDOM_EFFECT_DURATION);
-          preciseCuts = Math.floor(PRECISE_CUTS_NEEDED * wisdomProgress);
+          // Aggiorna effetti visivi
+          wisdomBarBlinkTimer++;
+          
+          // Dopo 1 secondo (60 frame), inizia a diminuire gradualmente
+          if (wisdomEffectTimer > 60) {
+            const remainingTime = WISDOM_EFFECT_DURATION - wisdomEffectTimer;
+            const decreaseProgress = (WISDOM_EFFECT_DURATION - 60 - remainingTime) / (WISDOM_EFFECT_DURATION - 60);
+            preciseCuts = Math.floor(PRECISE_CUTS_NEEDED * (1 - decreaseProgress));
+          }
           
           if (wisdomEffectTimer >= WISDOM_EFFECT_DURATION) {
             wisdomEffectActive = false;
@@ -1823,6 +1837,7 @@
         preciseCuts = 0;
         wisdomEffectActive = false;
         wisdomEffectTimer = 0;
+        wisdomBarBlinkTimer = 0;
         
         AudioManager.init().then(() => {
             AudioManager.isMuted = false;
@@ -1879,6 +1894,7 @@
         preciseCuts = 0;
         wisdomEffectActive = false;
         wisdomEffectTimer = 0;
+        wisdomBarBlinkTimer = 0;
         
         AudioManager.playIntroMusic();
         
