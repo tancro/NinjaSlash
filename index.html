@@ -1429,10 +1429,10 @@
         ctx.textBaseline = 'middle';
         ctx.fillText(`${score}`, x + boardWidth/2, y + 55);
         
-        // Barra dell'energia verticale
+        // Barra dell'energia verticale (a destra)
         const barWidth = 10;
         const barHeight = BAMBOO_SECTION_HEIGHT * 0.6;
-        const barX = canvas.width/2 - BAMBOO_WIDTH/2 + 25; // Sovrapposta al bambù, leggermente spostata a destra
+        const barX = canvas.width/2 + 2; // Centrata esattamente sul bambù
         const barY = BAMBOO_BASE_Y + (BAMBOO_SECTION_HEIGHT - barHeight) / 2; // Centrata verticalmente sulla sezione di base
         
         // Sfondo nero semi-trasparente con bordo luminoso
@@ -1440,10 +1440,19 @@
         ctx.fillRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
         
         // Bordo esterno luminoso con effetto 3D
-        const borderGradient = ctx.createLinearGradient(barX - 2, barY - 2, barX + barWidth + 2, barY + barHeight + 2);
-        borderGradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
-        borderGradient.addColorStop(0.5, 'rgba(136, 136, 136, 0.8)');
-        borderGradient.addColorStop(1, 'rgba(255, 255, 255, 0.8)');
+        let borderGradient;
+        if (wisdomEffectActive) {
+            // Bordo ghiacciato quando la saggezza è attiva
+            borderGradient = ctx.createLinearGradient(barX - 2, barY - 2, barX + barWidth + 2, barY + barHeight + 2);
+            borderGradient.addColorStop(0, 'rgba(173, 216, 230, 0.9)'); // Azzurro chiaro
+            borderGradient.addColorStop(0.5, 'rgba(135, 206, 250, 0.9)'); // Azzurro medio
+            borderGradient.addColorStop(1, 'rgba(173, 216, 230, 0.9)'); // Azzurro chiaro
+        } else {
+            borderGradient = ctx.createLinearGradient(barX - 2, barY - 2, barX + barWidth + 2, barY + barHeight + 2);
+            borderGradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+            borderGradient.addColorStop(0.5, 'rgba(136, 136, 136, 0.8)');
+            borderGradient.addColorStop(1, 'rgba(255, 255, 255, 0.8)');
+        }
         ctx.strokeStyle = borderGradient;
         ctx.lineWidth = 2;
         ctx.strokeRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
@@ -1457,7 +1466,14 @@
         
         // Gradiente per la barra dell'energia con trasparenza
         let gradient;
-        if (energy > MAX_ENERGY * 0.7) {
+        if (wisdomEffectActive) {
+            // Effetto congelamento azzurro quando la saggezza è attiva
+            gradient = ctx.createLinearGradient(barX, energyY, barX, barY + barHeight);
+            gradient.addColorStop(0, 'rgba(135, 206, 250, 0.9)'); // Azzurro chiaro
+            gradient.addColorStop(0.3, 'rgba(173, 216, 230, 0.9)'); // Azzurro medio
+            gradient.addColorStop(0.7, 'rgba(135, 206, 250, 0.9)'); // Azzurro chiaro
+            gradient.addColorStop(1, 'rgba(100, 149, 237, 0.9)'); // Azzurro scuro
+        } else if (energy > MAX_ENERGY * 0.7) {
             gradient = ctx.createLinearGradient(barX, energyY, barX, barY + barHeight);
             gradient.addColorStop(0, 'rgba(0, 255, 0, 0.8)');
             gradient.addColorStop(0.5, 'rgba(102, 255, 102, 0.8)');
@@ -1495,11 +1511,11 @@
             ctx.stroke();
         }
         
-        // Barra di Saggezza del Maestro
-        const wisdomBarWidth = 6; // Più fine della barra energia
+        // Barra di Saggezza del Maestro (a sinistra)
+        const wisdomBarWidth = 4; // Ridotta per bilanciamento
         const wisdomBarHeight = BAMBOO_SECTION_HEIGHT * 0.6;
-        const wisdomBarX = canvas.width/2 - BAMBOO_WIDTH/2 - 15; // Più vicina alla barra energia
-        const wisdomBarY = barY - wisdomBarHeight - 20; // Sopra la barra dell'energia
+        const wisdomBarX = canvas.width/2 - 10; // Centrata esattamente sul bambù
+        const wisdomBarY = barY; // Alla stessa altezza della barra energia
         
         // Sfondo nero semi-trasparente con bordo luminoso
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
