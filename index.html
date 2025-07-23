@@ -689,6 +689,11 @@
       let wisdomBarBlinkTimer = 0;
       const WISDOM_BLINK_SPEED = 8; // Velocità lampeggio
       
+      // Effetto scritta 2X
+      let show2XText = false;
+      let twoXTextTimer = 0;
+      const TWOX_TEXT_DURATION = 60; // 1 secondo a 60 FPS
+      
       // Costanti per l'animazione idle
       let NINJA_IDLE_FRAME_WIDTH = 55;
       let NINJA_IDLE_FRAME_HEIGHT = 100;
@@ -769,6 +774,49 @@
         }
       }
 
+      function draw2XText() {
+        if (show2XText) {
+          ctx.save();
+          
+          // Effetto lampeggio per 1 secondo
+          const blinkSpeed = 8; // Velocità del lampeggio
+          const blinkPhase = Math.sin(twoXTextTimer / blinkSpeed) * 0.5 + 0.5;
+          const opacity = blinkPhase;
+          
+          // Posizione al centro dello schermo, 30px più in alto
+          const centerX = canvas.width / 2;
+          const centerY = canvas.height / 2 - 30;
+          
+          // Disegna "SCORE" sopra "2X"
+          ctx.font = 'bold 36px "Press Start 2P"';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          
+          // Disegna il bordo bianco per "SCORE"
+          ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+          ctx.lineWidth = 2;
+          ctx.strokeText('SCORE', centerX, centerY - 50);
+          
+          // Disegna il testo nero per "SCORE"
+          ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+          ctx.fillText('SCORE', centerX, centerY - 50);
+          
+          // Disegna "2X" sotto "SCORE"
+          ctx.font = 'bold 72px "Press Start 2P"';
+          ctx.lineWidth = 4;
+          
+          // Disegna il bordo bianco per "2X"
+          ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+          ctx.strokeText('2X', centerX, centerY);
+          
+          // Disegna il testo nero per "2X"
+          ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+          ctx.fillText('2X', centerX, centerY);
+          
+          ctx.restore();
+        }
+      }
+
       // Funzioni di easing
       function easeOutQuad(t) {
         return t * (2 - t);
@@ -793,6 +841,10 @@
         // Effetti visivi
         flashOpacity = 0.3;
         startShake(10);
+        
+        // Attiva scritta 2X
+        show2XText = true;
+        twoXTextTimer = 0;
         
         // Effetto sonoro (usa il suono di taglio come fallback)
         AudioManager.playSlashSound();
@@ -1521,11 +1573,21 @@
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(wisdomBarX - 2, wisdomBarY - 2, wisdomBarWidth + 4, wisdomBarHeight + 4);
         
-        // Bordo esterno luminoso dorato
-        const wisdomBorderGradient = ctx.createLinearGradient(wisdomBarX - 2, wisdomBarY - 2, wisdomBarX + wisdomBarWidth + 2, wisdomBarY + wisdomBarHeight + 2);
-        wisdomBorderGradient.addColorStop(0, 'rgba(255, 215, 0, 0.8)'); // Oro
-        wisdomBorderGradient.addColorStop(0.5, 'rgba(255, 165, 0, 0.8)'); // Arancione
-        wisdomBorderGradient.addColorStop(1, 'rgba(255, 215, 0, 0.8)'); // Oro
+        // Bordo esterno luminoso - rosso quando attivo, normale quando inattivo
+        let wisdomBorderGradient;
+        if (wisdomEffectActive) {
+            // Bordo rosso quando il potere è attivo
+            wisdomBorderGradient = ctx.createLinearGradient(wisdomBarX - 2, wisdomBarY - 2, wisdomBarX + wisdomBarWidth + 2, wisdomBarY + wisdomBarHeight + 2);
+            wisdomBorderGradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)'); // Rosso
+            wisdomBorderGradient.addColorStop(0.5, 'rgba(220, 20, 60, 0.8)'); // Rosso scuro
+            wisdomBorderGradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)'); // Rosso
+        } else {
+            // Bordo normale come la barra energia quando inattivo
+            wisdomBorderGradient = ctx.createLinearGradient(wisdomBarX - 2, wisdomBarY - 2, wisdomBarX + wisdomBarWidth + 2, wisdomBarY + wisdomBarHeight + 2);
+            wisdomBorderGradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+            wisdomBorderGradient.addColorStop(0.5, 'rgba(136, 136, 136, 0.8)');
+            wisdomBorderGradient.addColorStop(1, 'rgba(255, 255, 255, 0.8)');
+        }
         ctx.strokeStyle = wisdomBorderGradient;
         ctx.lineWidth = 2;
         ctx.strokeRect(wisdomBarX - 2, wisdomBarY - 2, wisdomBarWidth + 4, wisdomBarHeight + 4);
@@ -1545,11 +1607,11 @@
           wisdomOpacity = 0.3 + (blinkPhase * 0.7); // Lampeggia tra 0.3 e 1.0
         }
         
-        // Gradiente dorato per la barra di saggezza
+        // Gradiente rosso per la barra di saggezza
         const wisdomGradient = ctx.createLinearGradient(wisdomBarX, wisdomFillY, wisdomBarX, wisdomBarY + wisdomBarHeight);
-        wisdomGradient.addColorStop(0, `rgba(255, 215, 0, ${wisdomOpacity})`); // Oro
-        wisdomGradient.addColorStop(0.5, `rgba(255, 165, 0, ${wisdomOpacity})`); // Arancione
-        wisdomGradient.addColorStop(1, `rgba(255, 215, 0, ${wisdomOpacity})`); // Oro
+        wisdomGradient.addColorStop(0, `rgba(255, 0, 0, ${wisdomOpacity})`); // Rosso
+        wisdomGradient.addColorStop(0.5, `rgba(220, 20, 60, ${wisdomOpacity})`); // Rosso scuro
+        wisdomGradient.addColorStop(1, `rgba(255, 0, 0, ${wisdomOpacity})`); // Rosso
         ctx.fillStyle = wisdomGradient;
         ctx.fillRect(wisdomBarX, wisdomFillY, wisdomBarWidth, wisdomFillHeight);
         
@@ -1561,7 +1623,7 @@
         ctx.fillRect(wisdomBarX, wisdomFillY, wisdomBarWidth, wisdomFillHeight);
         
         // Linee decorative orizzontali per la barra di saggezza
-        ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
         ctx.lineWidth = 1;
         for (let i = 1; i < 5; i++) {
             const y = wisdomBarY + (wisdomBarHeight * i / 5);
@@ -1592,6 +1654,7 @@
         drawParticles();
         drawDayNightOverlay();
         drawFlashEffect();
+        draw2XText();
         
 
         
@@ -1628,6 +1691,14 @@
             wisdomEffectActive = false;
             preciseCuts = 0; // Reset completo
             console.log('Effetto Saggezza del Maestro terminato');
+          }
+        }
+        
+        // Gestione scritta 2X
+        if (show2XText) {
+          twoXTextTimer++;
+          if (twoXTextTimer >= TWOX_TEXT_DURATION) {
+            show2XText = false;
           }
         }
         
@@ -1718,7 +1789,9 @@
             if (!currentSection.enemyIsFading) {
               currentSection.intact = false;
               currentSection.cutFromSide = side;
-              score += 3;
+              // Moltiplicatore punti x2 quando la barra di saggezza è attiva
+              const pointMultiplier = wisdomEffectActive ? 2 : 1;
+              score += 3 * pointMultiplier;
               startShake(15);
               energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN * 2);
               
@@ -1795,8 +1868,8 @@
           currentSection.cutFromSide = side;
           
           if (!(currentSection.hasBranch && currentSection.hasBonus)) {
-            // Moltiplicatore punti x2 quando la barra di saggezza è piena
-            const pointMultiplier = (preciseCuts >= PRECISE_CUTS_NEEDED) ? 2 : 1;
+            // Moltiplicatore punti x2 quando la barra di saggezza è attiva
+            const pointMultiplier = wisdomEffectActive ? 2 : 1;
             score += pointMultiplier;
             
             // Sistema Saggezza del Maestro - Contatore tagli precisi (solo se l'effetto non è attivo)
@@ -1854,6 +1927,8 @@
         wisdomEffectActive = false;
         wisdomEffectTimer = 0;
         wisdomBarBlinkTimer = 0;
+        show2XText = false;
+        twoXTextTimer = 0;
         
         AudioManager.init().then(() => {
             AudioManager.isMuted = false;
@@ -1911,6 +1986,8 @@
         wisdomEffectActive = false;
         wisdomEffectTimer = 0;
         wisdomBarBlinkTimer = 0;
+        show2XText = false;
+        twoXTextTimer = 0;
         
         AudioManager.playIntroMusic();
         
