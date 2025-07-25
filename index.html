@@ -187,6 +187,133 @@
         transform: scale(0.95);
       }
 
+      #characterSelectionScreen {
+        background: transparent;
+        width: 100% !important;
+        height: 100% !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        transform: none !important;
+        display: none;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        z-index: 1000 !important;
+        visibility: visible;
+        opacity: 1;
+        box-sizing: border-box;
+      }
+
+      #characterSelectionScreen h2 {
+        font-size: 24px;
+        margin: 0;
+        color: #ffffff;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+        text-align: center;
+        font-family: 'Press Start 2P', cursive;
+        line-height: 1.2;
+      }
+
+      .character-selection {
+        margin: 0;
+        text-align: center;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .character-options {
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+        margin: 0;
+      }
+
+      .character-option {
+        background: rgba(255, 255, 255, 0.1);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 15px;
+        padding: 15px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-width: 120px;
+      }
+
+      .character-option:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.6);
+        transform: scale(1.05);
+      }
+
+      .character-option.selected {
+        background: rgba(255, 215, 0, 0.3);
+        border-color: rgba(255, 215, 0, 0.8);
+        box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+      }
+
+      .character-icon {
+        width: 80px;
+        height: 120px;
+        margin-bottom: 10px;
+        image-rendering: pixelated;
+        image-rendering: -moz-crisp-edges;
+        image-rendering: crisp-edges;
+      }
+
+      .character-name {
+        font-size: 14px;
+        font-weight: bold;
+        color: #ffffff;
+        margin-bottom: 5px;
+      }
+
+      .character-power {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.8);
+      }
+
+      .start-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .selection-header {
+        flex: 0 0 auto;
+        margin-bottom: 20px;
+      }
+
+      .selection-footer {
+        flex: 0 0 auto;
+        margin-top: 20px;
+      }
+
+      #characterSelectionScreen .start-button {
+        position: static;
+        transform: none;
+        margin: 0;
+        padding: 15px 30px;
+        font-size: 20px;
+        background: rgba(210, 47, 34, 0.9);
+        border: 3px solid #6c110a;
+        border-radius: 10px;
+        color: #ffffff;
+        cursor: pointer;
+        transition: transform 0.1s, background-color 0.2s;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      }
+
+      #characterSelectionScreen .start-button:hover {
+        background: rgba(108, 17, 10, 0.9);
+        transform: scale(1.05);
+      }
+
+      #characterSelectionScreen .start-button:active {
+        transform: scale(0.95);
+      }
+
       .controls {
         position: absolute;
         bottom: 40px;
@@ -258,9 +385,34 @@
         </div>
         <div id="startScreen" class="screen">
             <p>Cut the bamboo while avoiding the branches! Make sure to act before your energy runs out!<br>Hit the ninja to get more points!</p>
-            <button class="start-button" onclick="startGame()">START</button>
+            <button class="start-button" id="mainStartButton">START</button>
         </div>
-        <div class="controls">
+
+        <div id="characterSelectionScreen" class="screen" style="display: none;">
+            <div class="selection-header">
+                <h2>Choose your character</h2>
+            </div>
+            
+            <div class="character-selection">
+                <div class="character-options">
+                    <div class="character-option" onclick="selectCharacter('master')">
+                        <canvas class="character-icon" id="masterIcon" width="80" height="120"></canvas>
+                        <div class="character-name">Master</div>
+                        <div class="character-power">Wisdom Power</div>
+                    </div>
+                    <div class="character-option" onclick="selectCharacter('student')">
+                        <canvas class="character-icon" id="studentIcon" width="80" height="120"></canvas>
+                        <div class="character-name">Student</div>
+                        <div class="character-power">Rage Power</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="selection-footer">
+                <button class="start-button" onclick="startGame()" id="startButton" disabled>PLAY</button>
+            </div>
+        </div>
+        <div class="controls" style="display: none;">
           <div id="leftBtn" class="control-btn">←</div>
           <div id="rightBtn" class="control-btn">→</div>
           <div class="keyboard-hint">On desktop use <br>← and → keys</div>
@@ -278,7 +430,7 @@
 
       // Asset loading management (Moved to the top)
       let assetsLoaded = 0;
-      const totalAssets = 11; // Aggiornato a 11 per includere il cane
+      const totalAssets = 16; // Aggiornato a 16 per includere gli sprite dello Student
 
       function assetLoaded(assetName) {
         assetsLoaded++;
@@ -633,6 +785,53 @@
         console.error('Errore nel caricamento dello sprite del cane');
       };
 
+      // Carica gli sprite dei personaggi per la selezione
+      const masterSelectionSprite = new Image();
+      masterSelectionSprite.crossOrigin = "anonymous";
+      masterSelectionSprite.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/stand-sprite-CPoWKWVwoBJKiaKrnfsJ3eHr826FDm.png?MOGq';
+      let masterSelectionSpriteLoaded = false;
+      masterSelectionSprite.onload = () => {
+        masterSelectionSpriteLoaded = true;
+        assetLoaded('master-selection-sprite');
+      };
+
+      const studentSelectionSprite = new Image();
+      studentSelectionSprite.crossOrigin = "anonymous";
+      studentSelectionSprite.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/girl-idle-XcPBIfs9bhXk4XKa1H7Y0yOFntVRKJ.png?u1MP';
+      let studentSelectionSpriteLoaded = false;
+      studentSelectionSprite.onload = () => {
+        studentSelectionSpriteLoaded = true;
+        assetLoaded('student-selection-sprite');
+      };
+
+      // Carica gli sprite per il gameplay dello Student
+      const studentIdleSprite = new Image();
+      studentIdleSprite.crossOrigin = "anonymous";
+      studentIdleSprite.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/girl-idle-XcPBIfs9bhXk4XKa1H7Y0yOFntVRKJ.png?u1MP';
+      let studentIdleSpriteLoaded = false;
+      studentIdleSprite.onload = () => {
+        studentIdleSpriteLoaded = true;
+        assetLoaded('student-idle-sprite');
+      };
+
+      const studentAttackSprite = new Image();
+      studentAttackSprite.crossOrigin = "anonymous";
+      studentAttackSprite.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/girl-attack-3AJpLHovBV1z1jnafTb24iEesqRLQS.png?MjkW';
+      let studentAttackSpriteLoaded = false;
+      studentAttackSprite.onload = () => {
+        studentAttackSpriteLoaded = true;
+        assetLoaded('student-attack-sprite');
+      };
+
+      const studentHurtSprite = new Image();
+      studentHurtSprite.crossOrigin = "anonymous";
+      studentHurtSprite.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/girl-hurt-G4UABvi69hWYdYOpDOMjiQQoCDYj4S.png?evl8';
+      let studentHurtSpriteLoaded = false;
+      studentHurtSprite.onload = () => {
+        studentHurtSpriteLoaded = true;
+        assetLoaded('student-hurt-sprite');
+      };
+
       canvas.width = 500;
       canvas.height = 800;
 
@@ -658,6 +857,7 @@
 
       // Stato del gioco
       let gameState = 'start';
+      let selectedCharacter = null; // 'master' o 'student'
       let score = 0;
       let speed = 2;
       let ninjaPosition = 'left';
@@ -719,6 +919,11 @@
       const HURT_ANIMATION_SPEED = 5; // Velocità dell'animazione hurt
       let currentHurtFrame = 0;
       let hurtAnimationTimer = 0;
+      
+      // Character selection animation
+      let selectionAnimationTimer = 0;
+      let selectionFrame = 0;
+      const SELECTION_ANIMATION_SPEED = 8; // Velocità animazione selezione
 
       class Particle {
         constructor(x, y) {
@@ -1164,9 +1369,34 @@
       }
 
       function drawNinja() {
-        const ninjaDrawWidth = NINJA_SIZE / 2; // Larghezza idle (50px)
-        const attackWidth = ATTACK_FRAME_WIDTH; // Larghezza attacco = larghezza frame sprite (140px)
-        const hurtWidth = NINJA_SIZE / 2; // Larghezza ferito
+        // Determina le dimensioni in base al personaggio selezionato
+        let ninjaDrawWidth, attackWidth, hurtWidth;
+        let idleFrameWidth, attackFrameWidth, hurtFrameWidth;
+        let idleFrameCount, attackFrameCount, hurtFrameCount;
+        
+        if (selectedCharacter === 'student') {
+          // Dimensioni per lo Student (ragazza)
+          ninjaDrawWidth = 54; // Larghezza idle
+          attackWidth = 114; // Larghezza attacco
+          hurtWidth = 56; // Larghezza ferito
+          idleFrameWidth = 54;
+          attackFrameWidth = 114;
+          hurtFrameWidth = 56;
+          idleFrameCount = 5;
+          attackFrameCount = 5;
+          hurtFrameCount = 3;
+        } else {
+          // Dimensioni per il Master (default)
+          ninjaDrawWidth = NINJA_SIZE / 2; // Larghezza idle (50px)
+          attackWidth = ATTACK_FRAME_WIDTH; // Larghezza attacco = larghezza frame sprite (140px)
+          hurtWidth = NINJA_SIZE / 2; // Larghezza ferito
+          idleFrameWidth = NINJA_IDLE_FRAME_WIDTH;
+          attackFrameWidth = ATTACK_FRAME_WIDTH;
+          hurtFrameWidth = HURT_FRAME_WIDTH;
+          idleFrameCount = IDLE_FRAME_COUNT;
+          attackFrameCount = ATTACK_FRAME_COUNT;
+          hurtFrameCount = HURT_FRAME_COUNT;
+        }
 
         const baseX = ninjaPosition === 'left' ?
           canvas.width / 2 - BAMBOO_WIDTH / 2 - ninjaDrawWidth - 15 : // Posizione base per idle/hurt
@@ -1196,7 +1426,7 @@
         if (!isAttacking && !isHurt) {
           idleAnimationTimer++;
           if (idleAnimationTimer >= IDLE_ANIMATION_SPEED) {
-            currentIdleFrame = (currentIdleFrame + 1) % IDLE_FRAME_COUNT;
+            currentIdleFrame = (currentIdleFrame + 1) % idleFrameCount;
             idleAnimationTimer = 0;
           }
           // Reset hurt animation state if we are idle
@@ -1204,7 +1434,7 @@
           hurtAnimationTimer = 0;
         } else if (isHurt) {
           // Aggiorna il frame dell'animazione hurt, ma blocca sull'ultimo frame
-          if (currentHurtFrame < HURT_FRAME_COUNT - 1) { 
+          if (currentHurtFrame < hurtFrameCount - 1) { 
             hurtAnimationTimer++;
             if (hurtAnimationTimer >= HURT_ANIMATION_SPEED) {
               currentHurtFrame++;
@@ -1213,19 +1443,20 @@
           }
         }
 
-
-
         ctx.save();
 
         // --- Gestione disegno in base allo stato --- 
 
         if (isHurt) {
             // Disegna il ninja ferito usando lo spritesheet
-            if (ninjaHurtSpriteLoaded) {
-                const srcX = currentHurtFrame * HURT_FRAME_WIDTH;
+            let hurtSpriteLoaded = selectedCharacter === 'student' ? studentHurtSpriteLoaded : ninjaHurtSpriteLoaded;
+            let hurtSprite = selectedCharacter === 'student' ? studentHurtSprite : ninjaHurtSprite;
+            
+            if (hurtSpriteLoaded) {
+                const srcX = currentHurtFrame * hurtFrameWidth;
                 const srcY = 0;
-                const srcWidth = HURT_FRAME_WIDTH;
-                const srcHeight = HURT_FRAME_HEIGHT;
+                const srcWidth = hurtFrameWidth;
+                const srcHeight = 100; // Altezza standard per entrambi
 
                 const destWidth = hurtWidth; // Usa la larghezza definita per hurt
                 const destHeight = NINJA_SIZE;
@@ -1234,13 +1465,13 @@
                     ctx.translate(drawX + destWidth, NINJA_Y);
                     ctx.scale(-1, 1);
                     ctx.drawImage(
-                        ninjaHurtSprite,
+                        hurtSprite,
                         srcX, srcY, srcWidth, srcHeight, // Source
                         0, 0, destWidth, destHeight // Destination
                     );
                 } else {
                      ctx.drawImage(
-                        ninjaHurtSprite,
+                        hurtSprite,
                         srcX, srcY, srcWidth, srcHeight, // Source
                         drawX, NINJA_Y, destWidth, destHeight // Destination
                     );
@@ -1251,14 +1482,17 @@
             }
         } else if (isAttacking) {
             // Disegna il ninja che attacca usando lo spritesheet
-            if (ninjaAttackSpriteLoaded) {
+            let attackSpriteLoaded = selectedCharacter === 'student' ? studentAttackSpriteLoaded : ninjaAttackSpriteLoaded;
+            let attackSprite = selectedCharacter === 'student' ? studentAttackSprite : ninjaAttackSprite;
+            
+            if (attackSpriteLoaded) {
                 // Calcola il frame corrente basato sul timer dell'attacco
-                const currentAttackFrame = Math.min(ATTACK_FRAME_COUNT - 1, Math.floor(attackTimer / ATTACK_ANIMATION_SPEED));
+                const currentAttackFrame = Math.min(attackFrameCount - 1, Math.floor(attackTimer / ATTACK_ANIMATION_SPEED));
                 
-                const srcX = currentAttackFrame * ATTACK_FRAME_WIDTH;
+                const srcX = currentAttackFrame * attackFrameWidth;
                 const srcY = 0;
-                const srcWidth = ATTACK_FRAME_WIDTH;
-                const srcHeight = ATTACK_FRAME_HEIGHT;
+                const srcWidth = attackFrameWidth;
+                const srcHeight = 100; // Altezza standard per entrambi
 
                 const destWidth = attackWidth; // Disegna alla larghezza del frame di attacco
                 const destHeight = NINJA_SIZE; // Altezza standard
@@ -1267,13 +1501,13 @@
                     ctx.translate(drawX + destWidth, NINJA_Y);
                     ctx.scale(-1, 1);
                      ctx.drawImage(
-                        ninjaAttackSprite,
+                        attackSprite,
                         srcX, srcY, srcWidth, srcHeight, // Source
                         0, 0, destWidth, destHeight // Destination
                     );
                  } else {
                     ctx.drawImage(
-                        ninjaAttackSprite,
+                        attackSprite,
                         srcX, srcY, srcWidth, srcHeight, // Source
                         drawX, NINJA_Y, destWidth, destHeight // Destination
                     );
@@ -1284,11 +1518,14 @@
             }
         } else {
             // Disegna il ninja in stato Idle usando lo spritesheet
-            if (ninjaIdleSpriteLoaded) {
-                const srcX = currentIdleFrame * NINJA_IDLE_FRAME_WIDTH;
+            let idleSpriteLoaded = selectedCharacter === 'student' ? studentIdleSpriteLoaded : ninjaIdleSpriteLoaded;
+            let idleSprite = selectedCharacter === 'student' ? studentIdleSprite : ninjaIdleSprite;
+            
+            if (idleSpriteLoaded) {
+                const srcX = currentIdleFrame * idleFrameWidth;
                 const srcY = 0;
-                const srcWidth = NINJA_IDLE_FRAME_WIDTH;
-                const srcHeight = NINJA_IDLE_FRAME_HEIGHT;
+                const srcWidth = idleFrameWidth;
+                const srcHeight = 100; // Altezza standard per entrambi
 
                 const destWidth = ninjaDrawWidth; // Disegna alla larghezza standard
                 const destHeight = NINJA_SIZE;
@@ -1297,13 +1534,13 @@
                     ctx.translate(drawX + destWidth, NINJA_Y);
                     ctx.scale(-1, 1);
                     ctx.drawImage(
-                        ninjaIdleSprite,
+                        idleSprite,
                         srcX, srcY, srcWidth, srcHeight, // Porzione dello sprite da ritagliare
                         0, 0, destWidth, destHeight // Dove e quanto grande disegnare sul canvas
                     );
                 } else {
                      ctx.drawImage(
-                        ninjaIdleSprite,
+                        idleSprite,
                         srcX, srcY, srcWidth, srcHeight, // Porzione dello sprite da ritagliare
                         drawX, NINJA_Y, destWidth, destHeight // Dove e quanto grande disegnare sul canvas
                     );
@@ -1679,6 +1916,7 @@
         
         ctx.translate(shakeOffsetX, shakeOffsetY);
         
+        // Disegna sempre lo sfondo (anche per la schermata di selezione)
         if (backgroundImageLoaded) {
           ctx.drawImage(backgroundImage, 0, 0, canvas.width, FLOOR_Y);
         } else {
@@ -1686,18 +1924,21 @@
           ctx.fillRect(0, 0, canvas.width, FLOOR_Y);
         }
         
-        drawMovingDog(); // Sostituito drawMovingSquare con drawMovingDog
+        // Disegna il pavimento sempre
         drawFloor();
-        drawBamboo();
-        drawScoreBoard();
-        drawNinja();
-        drawParticles();
-        drawDayNightOverlay();
-        drawFlashEffect();
-        draw2XText();
-        drawBorderPulseEffect();
         
-
+        // Disegna gli elementi del gioco solo se stiamo giocando
+        if (gameState === 'playing') {
+          drawMovingDog();
+          drawBamboo();
+          drawScoreBoard();
+          drawNinja();
+          drawParticles();
+          drawDayNightOverlay();
+          drawFlashEffect();
+          draw2XText();
+          drawBorderPulseEffect();
+        }
         
         ctx.restore();
       }
@@ -1949,13 +2190,132 @@
         requestAnimationFrame(gameLoop);
       }
 
+      function showCharacterSelection() {
+        console.log('showCharacterSelection chiamata!');
+        gameState = 'characterSelection';
+        startScreen.style.display = 'none';
+        const characterScreen = document.getElementById('characterSelectionScreen');
+        if (characterScreen) {
+          characterScreen.style.display = 'flex';
+          characterScreen.style.visibility = 'visible';
+          characterScreen.style.opacity = '1';
+          characterScreen.style.zIndex = '1000';
+          console.log('Schermata selezione personaggi mostrata');
+          
+          // Disegna gli sprite dei personaggi
+          setTimeout(() => {
+            drawCharacterIcons();
+          }, 100);
+          
+          // Avvia il loop di animazione per la selezione
+          startSelectionAnimation();
+        } else {
+          console.error('characterSelectionScreen non trovato!');
+        }
+      }
+      
+      function startSelectionAnimation() {
+        console.log('startSelectionAnimation chiamata');
+        function animateSelection() {
+          if (gameState === 'characterSelection') {
+            drawCharacterIcons();
+            requestAnimationFrame(animateSelection);
+          } else {
+            console.log('Animazione selezione fermata, gameState:', gameState);
+          }
+        }
+        animateSelection();
+      }
+
+      function selectCharacter(character) {
+        selectedCharacter = character;
+        
+        // Rimuovi selezione precedente
+        document.querySelectorAll('.character-option').forEach(option => {
+          option.classList.remove('selected');
+        });
+        
+        // Aggiungi selezione al personaggio scelto
+        event.target.closest('.character-option').classList.add('selected');
+        
+        // Abilita il bottone start
+        document.getElementById('startButton').disabled = false;
+        
+        // Avvia l'animazione di selezione
+        selectionAnimationTimer = 0;
+        selectionFrame = 0;
+        
+        console.log(`Personaggio selezionato: ${character}`);
+      }
+
+      function drawCharacterIcons() {
+        console.log('drawCharacterIcons chiamata, selectedCharacter:', selectedCharacter, 'selectionFrame:', selectionFrame);
+        
+        // Aggiorna l'animazione di selezione
+        selectionAnimationTimer++;
+        if (selectionAnimationTimer >= SELECTION_ANIMATION_SPEED) {
+          selectionFrame = (selectionFrame + 1) % 4; // 4 frame per Master, 5 per Student
+          selectionAnimationTimer = 0;
+          console.log('Frame aggiornato a:', selectionFrame);
+        }
+        
+        // Disegna Master
+        const masterCanvas = document.getElementById('masterIcon');
+        if (masterCanvas && masterSelectionSpriteLoaded) {
+          const masterCtx = masterCanvas.getContext('2d');
+          masterCtx.clearRect(0, 0, 80, 120);
+          
+          // Se Master è selezionato, usa l'animazione
+          if (selectedCharacter === 'master') {
+            const frameX = selectionFrame * 55; // 55px per frame
+            masterCtx.drawImage(masterSelectionSprite, frameX, 0, 55, 100, 0, 0, 80, 120);
+          } else {
+            // Frame statico se non selezionato
+            masterCtx.drawImage(masterSelectionSprite, 0, 0, 55, 100, 0, 0, 80, 120);
+          }
+        }
+        
+        // Disegna Student (flippata per guardare il Master)
+        const studentCanvas = document.getElementById('studentIcon');
+        if (studentCanvas && studentIdleSpriteLoaded) {
+          const studentCtx = studentCanvas.getContext('2d');
+          studentCtx.clearRect(0, 0, 80, 120);
+          
+          // Salva il contesto per il flip
+          studentCtx.save();
+          
+          // Flippa orizzontalmente
+          studentCtx.translate(80, 0); // Sposta l'origine a destra
+          studentCtx.scale(-1, 1); // Capovolgi orizzontalmente
+          
+          // Se Student è selezionato, usa l'animazione
+          if (selectedCharacter === 'student') {
+            const frameX = selectionFrame * 54; // 54px per frame
+            studentCtx.drawImage(studentIdleSprite, frameX, 0, 54, 100, 0, 0, 80, 120);
+          } else {
+            // Frame statico se non selezionato
+            studentCtx.drawImage(studentIdleSprite, 0, 0, 54, 100, 0, 0, 80, 120);
+          }
+          
+          // Ripristina il contesto
+          studentCtx.restore();
+        }
+      }
+
       function startGame() {
+        if (!selectedCharacter) {
+          alert('Please select a character first!');
+          return;
+        }
+        
         gameState = 'playing';
         score = 0;
         speed = 2;
         ninjaPosition = 'left';
         isHurt = false;
         startScreen.style.display = 'none';
+        document.getElementById('characterSelectionScreen').style.display = 'none';
+        document.querySelector('.controls').style.display = 'flex';
         document.querySelector('.controls').style.pointerEvents = 'auto';
         energy = MAX_ENERGY;
         currentEnergyDecay = INITIAL_ENERGY_DECAY;
@@ -1973,6 +2333,13 @@
         twoXTextTimer = 0;
         borderPulseTimer = 0;
         
+        // Reset animazione selezione
+        selectionAnimationTimer = 0;
+        selectionFrame = 0;
+        
+        // Reset selezione personaggio
+        selectedCharacter = null;
+        
         AudioManager.init().then(() => {
             AudioManager.isMuted = false;
             AudioManager.playIntroMusic();
@@ -1984,6 +2351,7 @@
 
       function gameOver() {
         gameState = 'gameover';
+        document.querySelector('.controls').style.display = 'none';
         AudioManager.stopCurrentMusic();
         window.FarcadeSDK.singlePlayer.actions.gameOver({ score: score });
       }
@@ -2016,6 +2384,7 @@
         ninjaPosition = 'left';
         isHurt = false;
         startScreen.style.display = 'none';
+        document.querySelector('.controls').style.display = 'flex';
         document.querySelector('.controls').style.pointerEvents = 'auto';
         energy = MAX_ENERGY;
         currentEnergyDecay = INITIAL_ENERGY_DECAY;
@@ -2033,6 +2402,13 @@
         twoXTextTimer = 0;
         borderPulseTimer = 0;
         
+        // Reset animazione selezione
+        selectionAnimationTimer = 0;
+        selectionFrame = 0;
+        
+        // Reset selezione personaggio
+        selectedCharacter = null;
+        
         AudioManager.playIntroMusic();
         
         initializeBamboo();
@@ -2041,6 +2417,20 @@
       // Add Farcade SDK mute handler
       window.FarcadeSDK.on('toggle_mute', (data) => {
           AudioManager.toggleMute(data.isMuted);
+      });
+
+      // Debug: aggiungi event listener per il bottone start
+      document.addEventListener('DOMContentLoaded', () => {
+        const startButton = document.getElementById('mainStartButton');
+        if (startButton) {
+          startButton.addEventListener('click', (e) => {
+            console.log('Bottone START cliccato via event listener!');
+            e.preventDefault();
+            showCharacterSelection();
+          });
+        } else {
+          console.error('Bottone mainStartButton non trovato!');
+        }
       });
 
       // Costanti per il cane in movimento
