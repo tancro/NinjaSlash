@@ -395,12 +395,12 @@
             
             <div class="character-selection">
                 <div class="character-options">
-                    <div class="character-option" onclick="selectCharacter('master')">
+                    <div class="character-option" data-character="master" onclick="selectCharacter('master')">
                         <canvas class="character-icon" id="masterIcon" width="80" height="120"></canvas>
                         <div class="character-name">Master</div>
                         <div class="character-power">Wisdom Power</div>
                     </div>
-                    <div class="character-option" onclick="selectCharacter('student')">
+                    <div class="character-option" data-character="student" onclick="selectCharacter('student')">
                         <canvas class="character-icon" id="studentIcon" width="80" height="120"></canvas>
                         <div class="character-name">Student</div>
                         <div class="character-power">Rage Power</div>
@@ -885,6 +885,15 @@
       let wisdomEffectTimer = 0;
       const WISDOM_EFFECT_DURATION = 600; // 10 secondi a 60 FPS
       
+      // Sistema Rage dell'Allieva
+      let rageBar = 0;
+      const MAX_RAGE = 10;
+      const RAGE_GAIN_PER_CUT = 1;
+      const RAGE_GAIN_PER_HIT = 2;
+      let rageEffectActive = false;
+      let rageEffectTimer = 0;
+      const RAGE_EFFECT_DURATION = 600; // 10 secondi a 60 FPS
+      
       // Effetti visivi saggezza
       let wisdomBarBlinkTimer = 0;
       const WISDOM_BLINK_SPEED = 8; // Velocità lampeggio
@@ -893,6 +902,11 @@
       let show2XText = false;
       let twoXTextTimer = 0;
       const TWOX_TEXT_DURATION = 60; // 1 secondo a 60 FPS
+      
+      // Effetto scritta IMMORTALE per l'Allieva
+      let showImmortalText = false;
+      let immortalTextTimer = 0;
+      const IMMORTAL_TEXT_DURATION = 120; // 2 secondi a 60 FPS
       
       // Effetto pulsante lungo i bordi
       let borderPulseTimer = 0;
@@ -1026,8 +1040,39 @@
         }
       }
 
+      function drawImmortalText() {
+        if (showImmortalText) {
+          ctx.save();
+          
+          // Effetto lampeggio per 2 secondi
+          const blinkSpeed = 6; // Velocità del lampeggio
+          const blinkPhase = Math.sin(immortalTextTimer / blinkSpeed) * 0.5 + 0.5;
+          const opacity = blinkPhase;
+          
+          // Posizione al centro dello schermo
+          const centerX = canvas.width / 2;
+          const centerY = canvas.height / 2;
+          
+          // Disegna "RAGE" in rosso
+          ctx.font = 'bold 48px "Press Start 2P"';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          
+          // Disegna il bordo bianco
+          ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+          ctx.lineWidth = 3;
+          ctx.strokeText('RAGE', centerX, centerY);
+          
+          // Disegna il testo rosso
+          ctx.fillStyle = `rgba(255, 0, 0, ${opacity})`;
+          ctx.fillText('RAGE', centerX, centerY);
+          
+          ctx.restore();
+        }
+      }
+
       function drawBorderPulseEffect() {
-        if (wisdomEffectActive) {
+        if (wisdomEffectActive || rageEffectActive) {
           ctx.save();
           
           // Calcola l'intensità del pulsare (più sottile)
@@ -1039,21 +1084,35 @@
           const maxRadius = Math.max(canvas.width, canvas.height) * 0.8; // Aumentato per coprire top, left, right
           const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius);
           
-          // Gradiente sfumato: colore giallo/oro (più visibile)
-          gradient.addColorStop(0, `rgba(255, 215, 0, 0)`); // Trasparente al centro
-          gradient.addColorStop(0.2, `rgba(255, 255, 0, ${0.15 * pulseIntensity})`); // Leggero giallo
-          gradient.addColorStop(0.5, `rgba(255, 215, 0, ${0.35 * pulseIntensity})`); // Oro medio
-          gradient.addColorStop(0.8, `rgba(255, 165, 0, ${0.6 * pulseIntensity})`); // Oro scuro
-          gradient.addColorStop(1, `rgba(255, 215, 0, ${0.8 * pulseIntensity})`); // Oro pieno ai bordi
+          if (selectedCharacter === 'master' && wisdomEffectActive) {
+            // Gradiente giallo/oro per il Master
+            gradient.addColorStop(0, `rgba(255, 215, 0, 0)`); // Trasparente al centro
+            gradient.addColorStop(0.2, `rgba(255, 255, 0, ${0.15 * pulseIntensity})`); // Leggero giallo
+            gradient.addColorStop(0.5, `rgba(255, 215, 0, ${0.35 * pulseIntensity})`); // Oro medio
+            gradient.addColorStop(0.8, `rgba(255, 165, 0, ${0.6 * pulseIntensity})`); // Oro scuro
+            gradient.addColorStop(1, `rgba(255, 215, 0, ${0.8 * pulseIntensity})`); // Oro pieno ai bordi
+          } else if (selectedCharacter === 'student' && rageEffectActive) {
+            // Gradiente rosso per lo Student
+            gradient.addColorStop(0, `rgba(255, 0, 0, 0)`); // Trasparente al centro
+            gradient.addColorStop(0.2, `rgba(255, 100, 100, ${0.15 * pulseIntensity})`); // Rosso chiaro
+            gradient.addColorStop(0.5, `rgba(255, 0, 0, ${0.35 * pulseIntensity})`); // Rosso medio
+            gradient.addColorStop(0.8, `rgba(139, 0, 0, ${0.6 * pulseIntensity})`); // Rosso scuro
+            gradient.addColorStop(1, `rgba(255, 0, 0, ${0.8 * pulseIntensity})`); // Rosso pieno ai bordi
+          }
           
           ctx.fillStyle = gradient;
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           
-          // Aggiungi un overlay aggiuntivo per top, left, right (giallo/oro)
+          // Aggiungi un overlay aggiuntivo per top, left, right
           const overlayGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius * 0.9);
           overlayGradient.addColorStop(0, `rgba(255, 215, 0, 0)`);
           overlayGradient.addColorStop(0.8, `rgba(255, 215, 0, 0)`);
-          overlayGradient.addColorStop(1, `rgba(255, 215, 0, ${0.3 * pulseIntensity})`);
+          
+          if (selectedCharacter === 'master' && wisdomEffectActive) {
+            overlayGradient.addColorStop(1, `rgba(255, 215, 0, ${0.3 * pulseIntensity})`);
+          } else if (selectedCharacter === 'student' && rageEffectActive) {
+            overlayGradient.addColorStop(1, `rgba(255, 0, 0, ${0.3 * pulseIntensity})`);
+          }
           
           ctx.fillStyle = overlayGradient;
           ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1095,6 +1154,28 @@
         AudioManager.playSlashSound();
         
         console.log('Saggezza del Maestro attivata! +10 punti, energia rallentata');
+      }
+
+      function activateStudentRage() {
+        // Immortalità per 10 secondi
+        rageEffectActive = true;
+        rageEffectTimer = 0;
+        
+        // Bonus punti
+        score += 10;
+        
+        // Effetti visivi
+        flashOpacity = 0.3;
+        startShake(10);
+        
+        // Mostra messaggio IMMORTALE
+        showImmortalText = true;
+        immortalTextTimer = 0;
+        
+        // Effetto sonoro
+        AudioManager.playSlashSound();
+        
+        console.log('Rage dell\'Allieva attivata! +10 punti, immortalità per 10 secondi');
       }
 
       class BambooSection {
@@ -1369,6 +1450,15 @@
       }
 
       function drawNinja() {
+        // Debug: log del personaggio selezionato ogni 60 frame (1 secondo)
+        if (typeof drawNinja.frameCount === 'undefined') {
+          drawNinja.frameCount = 0;
+        }
+        drawNinja.frameCount++;
+        if (drawNinja.frameCount % 60 === 0) {
+          console.log('🎨 drawNinja - selectedCharacter:', selectedCharacter);
+        }
+        
         // Determina le dimensioni in base al personaggio selezionato
         let ninjaDrawWidth, attackWidth, hurtWidth;
         let idleFrameWidth, attackFrameWidth, hurtFrameWidth;
@@ -1377,10 +1467,10 @@
         if (selectedCharacter === 'student') {
           // Dimensioni per lo Student (ragazza)
           ninjaDrawWidth = 54; // Larghezza idle
-          attackWidth = 114; // Larghezza attacco
+          attackWidth = 126; // Larghezza attacco (aggiornata)
           hurtWidth = 56; // Larghezza ferito
           idleFrameWidth = 54;
-          attackFrameWidth = 114;
+          attackFrameWidth = 126; // Larghezza frame attacco (aggiornata)
           hurtFrameWidth = 56;
           idleFrameCount = 5;
           attackFrameCount = 5;
@@ -1840,73 +1930,98 @@
             ctx.stroke();
         }
         
-        // Barra di Saggezza del Maestro (a sinistra)
-        const wisdomBarWidth = 4; // Ridotta per bilanciamento
-        const wisdomBarHeight = BAMBOO_SECTION_HEIGHT * 0.6;
-        const wisdomBarX = canvas.width/2 - 10; // Centrata esattamente sul bambù
-        const wisdomBarY = barY; // Alla stessa altezza della barra energia
+        // Barra di Saggezza del Maestro o Rage dell'Allieva (a sinistra)
+        const leftBarWidth = 4; // Ridotta per bilanciamento
+        const leftBarHeight = BAMBOO_SECTION_HEIGHT * 0.6;
+        const leftBarX = canvas.width/2 - 10; // Centrata esattamente sul bambù
+        const leftBarY = barY; // Alla stessa altezza della barra energia
+        
+        // Determina se mostrare barra saggezza o rage
+        const isMaster = selectedCharacter === 'master';
+        const isStudent = selectedCharacter === 'student';
         
         // Sfondo nero semi-trasparente con bordo luminoso
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(wisdomBarX - 2, wisdomBarY - 2, wisdomBarWidth + 4, wisdomBarHeight + 4);
+        ctx.fillRect(leftBarX - 2, leftBarY - 2, leftBarWidth + 4, leftBarHeight + 4);
         
-        // Bordo esterno luminoso - rosso quando attivo, normale quando inattivo
-        let wisdomBorderGradient;
-        if (wisdomEffectActive) {
-            // Bordo rosso quando il potere è attivo
-            wisdomBorderGradient = ctx.createLinearGradient(wisdomBarX - 2, wisdomBarY - 2, wisdomBarX + wisdomBarWidth + 2, wisdomBarY + wisdomBarHeight + 2);
-            wisdomBorderGradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)'); // Rosso
-            wisdomBorderGradient.addColorStop(0.5, 'rgba(220, 20, 60, 0.8)'); // Rosso scuro
-            wisdomBorderGradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)'); // Rosso
+        // Bordo esterno luminoso - giallo per Master, rosso per Student quando attivo
+        let leftBorderGradient;
+        if (isMaster && wisdomEffectActive) {
+            // Bordo giallo quando la saggezza è attiva
+            leftBorderGradient = ctx.createLinearGradient(leftBarX - 2, leftBarY - 2, leftBarX + leftBarWidth + 2, leftBarY + leftBarHeight + 2);
+            leftBorderGradient.addColorStop(0, 'rgba(255, 255, 0, 0.8)'); // Giallo
+            leftBorderGradient.addColorStop(0.5, 'rgba(255, 215, 0, 0.8)'); // Oro
+            leftBorderGradient.addColorStop(1, 'rgba(255, 255, 0, 0.8)'); // Giallo
+        } else if (isStudent && rageEffectActive) {
+            // Bordo rosso quando il rage è attivo
+            leftBorderGradient = ctx.createLinearGradient(leftBarX - 2, leftBarY - 2, leftBarX + leftBarWidth + 2, leftBarY + leftBarHeight + 2);
+            leftBorderGradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)'); // Rosso
+            leftBorderGradient.addColorStop(0.5, 'rgba(220, 20, 60, 0.8)'); // Rosso scuro
+            leftBorderGradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)'); // Rosso
         } else {
             // Bordo normale come la barra energia quando inattivo
-            wisdomBorderGradient = ctx.createLinearGradient(wisdomBarX - 2, wisdomBarY - 2, wisdomBarX + wisdomBarWidth + 2, wisdomBarY + wisdomBarHeight + 2);
-            wisdomBorderGradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
-            wisdomBorderGradient.addColorStop(0.5, 'rgba(136, 136, 136, 0.8)');
-            wisdomBorderGradient.addColorStop(1, 'rgba(255, 255, 255, 0.8)');
+            leftBorderGradient = ctx.createLinearGradient(leftBarX - 2, leftBarY - 2, leftBarX + leftBarWidth + 2, leftBarY + leftBarHeight + 2);
+            leftBorderGradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+            leftBorderGradient.addColorStop(0.5, 'rgba(136, 136, 136, 0.8)');
+            leftBorderGradient.addColorStop(1, 'rgba(255, 255, 255, 0.8)');
         }
-        ctx.strokeStyle = wisdomBorderGradient;
+        ctx.strokeStyle = leftBorderGradient;
         ctx.lineWidth = 2;
-        ctx.strokeRect(wisdomBarX - 2, wisdomBarY - 2, wisdomBarWidth + 4, wisdomBarHeight + 4);
+        ctx.strokeRect(leftBarX - 2, leftBarY - 2, leftBarWidth + 4, leftBarHeight + 4);
         
         // Sfondo interno della barra
         ctx.fillStyle = 'rgba(51, 51, 51, 0.8)';
-        ctx.fillRect(wisdomBarX, wisdomBarY, wisdomBarWidth, wisdomBarHeight);
+        ctx.fillRect(leftBarX, leftBarY, leftBarWidth, leftBarHeight);
         
-        // Calcola il riempimento basato sui tagli precisi
-        const wisdomFillHeight = (preciseCuts / PRECISE_CUTS_NEEDED) * wisdomBarHeight;
-        const wisdomFillY = wisdomBarY + wisdomBarHeight - wisdomFillHeight;
+        // Calcola il riempimento basato sul personaggio
+        let leftFillHeight, leftFillY;
+        if (isMaster) {
+          leftFillHeight = (preciseCuts / PRECISE_CUTS_NEEDED) * leftBarHeight;
+        } else if (isStudent) {
+          leftFillHeight = (rageBar / MAX_RAGE) * leftBarHeight;
+        } else {
+          leftFillHeight = 0;
+        }
+        leftFillY = leftBarY + leftBarHeight - leftFillHeight;
         
         // Effetto lampeggio quando l'effetto è attivo
-        let wisdomOpacity = 0.9;
-        if (wisdomEffectActive) {
+        let leftOpacity = 0.9;
+        if ((isMaster && wisdomEffectActive) || (isStudent && rageEffectActive)) {
           const blinkPhase = Math.sin(wisdomBarBlinkTimer / WISDOM_BLINK_SPEED) * 0.5 + 0.5;
-          wisdomOpacity = 0.3 + (blinkPhase * 0.7); // Lampeggia tra 0.3 e 1.0
+          leftOpacity = 0.3 + (blinkPhase * 0.7); // Lampeggia tra 0.3 e 1.0
         }
         
-        // Gradiente rosso per la barra di saggezza
-        const wisdomGradient = ctx.createLinearGradient(wisdomBarX, wisdomFillY, wisdomBarX, wisdomBarY + wisdomBarHeight);
-        wisdomGradient.addColorStop(0, `rgba(255, 0, 0, ${wisdomOpacity})`); // Rosso
-        wisdomGradient.addColorStop(0.5, `rgba(220, 20, 60, ${wisdomOpacity})`); // Rosso scuro
-        wisdomGradient.addColorStop(1, `rgba(255, 0, 0, ${wisdomOpacity})`); // Rosso
-        ctx.fillStyle = wisdomGradient;
-        ctx.fillRect(wisdomBarX, wisdomFillY, wisdomBarWidth, wisdomFillHeight);
+        // Gradiente per la barra sinistra
+        const leftGradient = ctx.createLinearGradient(leftBarX, leftFillY, leftBarX, leftBarY + leftBarHeight);
+        if (isMaster) {
+          // Gradiente giallo per la barra di saggezza
+          leftGradient.addColorStop(0, `rgba(255, 255, 0, ${leftOpacity})`); // Giallo
+          leftGradient.addColorStop(0.5, `rgba(255, 215, 0, ${leftOpacity})`); // Oro
+          leftGradient.addColorStop(1, `rgba(255, 255, 0, ${leftOpacity})`); // Giallo
+        } else if (isStudent) {
+          // Gradiente rosso scuro per la barra di rage
+          leftGradient.addColorStop(0, `rgba(139, 0, 0, ${leftOpacity})`); // Rosso scuro
+          leftGradient.addColorStop(0.5, `rgba(255, 0, 0, ${leftOpacity})`); // Rosso
+          leftGradient.addColorStop(1, `rgba(139, 0, 0, ${leftOpacity})`); // Rosso scuro
+        }
+        ctx.fillStyle = leftGradient;
+        ctx.fillRect(leftBarX, leftFillY, leftBarWidth, leftFillHeight);
         
         // Effetto lucido
-        const wisdomShine = ctx.createLinearGradient(wisdomBarX, wisdomFillY, wisdomBarX + wisdomBarWidth, wisdomFillY);
-        wisdomShine.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
-        wisdomShine.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        ctx.fillStyle = wisdomShine;
-        ctx.fillRect(wisdomBarX, wisdomFillY, wisdomBarWidth, wisdomFillHeight);
+        const leftShine = ctx.createLinearGradient(leftBarX, leftFillY, leftBarX + leftBarWidth, leftFillY);
+        leftShine.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+        leftShine.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = leftShine;
+        ctx.fillRect(leftBarX, leftFillY, leftBarWidth, leftFillHeight);
         
-        // Linee decorative orizzontali per la barra di saggezza
+        // Linee decorative orizzontali per la barra sinistra
         ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
         ctx.lineWidth = 1;
         for (let i = 1; i < 5; i++) {
-            const y = wisdomBarY + (wisdomBarHeight * i / 5);
+            const y = leftBarY + (leftBarHeight * i / 5);
             ctx.beginPath();
-            ctx.moveTo(wisdomBarX, y);
-            ctx.lineTo(wisdomBarX + wisdomBarWidth, y);
+            ctx.moveTo(leftBarX, y);
+            ctx.lineTo(leftBarX + leftBarWidth, y);
             ctx.stroke();
         }
       }
@@ -1937,6 +2052,7 @@
           drawDayNightOverlay();
           drawFlashEffect();
           draw2XText();
+          drawImmortalText();
           drawBorderPulseEffect();
         }
         
@@ -1977,11 +2093,38 @@
           }
         }
         
+        // Gestione effetto Rage dell'Allieva
+        if (rageEffectActive) {
+          rageEffectTimer++;
+          borderPulseTimer += BORDER_PULSE_SPEED;
+          
+          // Diminuisce gradualmente la barra rage
+          if (rageEffectTimer > 60) {
+            const remainingTime = RAGE_EFFECT_DURATION - rageEffectTimer;
+            const decreaseProgress = (RAGE_EFFECT_DURATION - 60 - remainingTime) / (RAGE_EFFECT_DURATION - 60);
+            rageBar = Math.floor(MAX_RAGE * (1 - decreaseProgress));
+          }
+          
+          if (rageEffectTimer >= RAGE_EFFECT_DURATION) {
+            rageEffectActive = false;
+            rageBar = 0; // Reset completo
+            console.log('Effetto Rage dell\'Allieva terminato');
+          }
+        }
+        
         // Gestione scritta 2X
         if (show2XText) {
           twoXTextTimer++;
           if (twoXTextTimer >= TWOX_TEXT_DURATION) {
             show2XText = false;
+          }
+        }
+        
+        // Gestione scritta IMMORTALE
+        if (showImmortalText) {
+          immortalTextTimer++;
+          if (immortalTextTimer >= IMMORTAL_TEXT_DURATION) {
+            showImmortalText = false;
           }
         }
         
@@ -2075,6 +2218,16 @@
               // Moltiplicatore punti x2 quando la barra di saggezza è attiva
               const pointMultiplier = wisdomEffectActive ? 2 : 1;
               score += 3 * pointMultiplier;
+              
+              // Sistema Rage dell'Allieva - incrementa rage quando colpisce nemico
+              if (selectedCharacter === 'student' && !rageEffectActive) {
+                rageBar += RAGE_GAIN_PER_HIT;
+                console.log(`Rage bar (hit): ${rageBar}/${MAX_RAGE}`);
+                
+                if (rageBar >= MAX_RAGE) {
+                  activateStudentRage();
+                }
+              }
               startShake(15);
               energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN * 2);
               
@@ -2096,6 +2249,13 @@
             }
             return false;
           } else {
+            // Sistema Rage dell'Allieva - disattiva collisioni con rami durante immortalità
+            if (selectedCharacter === 'student' && rageEffectActive) {
+              console.log('Allieva immune ai rami grazie al Rage!');
+              startShake(5);
+              AudioManager.playSlashSound(); // Suono diverso per indicare immunità
+              return false; // Non collisione
+            }
             handleCollision();
             return true;
           }
@@ -2112,6 +2272,14 @@
       }
 
       function handleCollision() {
+        // Sistema Rage dell'Allieva - immortalità durante l'effetto
+        if (selectedCharacter === 'student' && rageEffectActive) {
+          console.log('Allieva immune al danno grazie al Rage!');
+          startShake(10);
+          AudioManager.playSlashSound(); // Suono diverso per indicare immunità
+          return; // Non muore
+        }
+        
         startShake(20);
         document.querySelector('.controls').style.pointerEvents = 'none';
         AudioManager.playCollisionSound();
@@ -2156,7 +2324,7 @@
             score += pointMultiplier;
             
             // Sistema Saggezza del Maestro - Contatore tagli precisi (solo se l'effetto non è attivo)
-            if (!wisdomEffectActive && energy > MAX_ENERGY * PRECISION_THRESHOLD && preciseCuts < PRECISE_CUTS_NEEDED) {
+            if (selectedCharacter === 'master' && !wisdomEffectActive && energy > MAX_ENERGY * PRECISION_THRESHOLD && preciseCuts < PRECISE_CUTS_NEEDED) {
               preciseCuts++;
               console.log(`Taglio preciso! ${preciseCuts}/${PRECISE_CUTS_NEEDED}`);
               if (preciseCuts >= PRECISE_CUTS_NEEDED) {
@@ -2164,8 +2332,18 @@
                 activateMasterWisdom();
                 console.log('Barra di saggezza piena! Potere attivato automaticamente');
               }
-            } else if (!wisdomEffectActive && energy <= MAX_ENERGY * PRECISION_THRESHOLD && preciseCuts < PRECISE_CUTS_NEEDED) {
+            } else if (selectedCharacter === 'master' && !wisdomEffectActive && energy <= MAX_ENERGY * PRECISION_THRESHOLD && preciseCuts < PRECISE_CUTS_NEEDED) {
               preciseCuts = 0; // Reset se taglio non preciso (solo se non è già piena)
+            }
+            
+            // Sistema Rage dell'Allieva
+            if (selectedCharacter === 'student' && !rageEffectActive) {
+              rageBar += RAGE_GAIN_PER_CUT;
+              console.log(`Rage bar: ${rageBar}/${MAX_RAGE}`);
+              
+              if (rageBar >= MAX_RAGE) {
+                activateStudentRage();
+              }
             }
             
             energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN);
@@ -2174,6 +2352,15 @@
           setTimeout(() => {
             if (gameState === 'playing') {
               if (nextSection && nextSection.hasBranch && nextSection.branchSide === side && !nextSection.hasBonus) {
+                // Sistema Rage dell'Allieva - disattiva collisioni con rami durante immortalità
+                if (selectedCharacter === 'student' && rageEffectActive) {
+                  console.log('Allieva immune ai rami (nextSection) grazie al Rage!');
+                  startShake(5);
+                  AudioManager.playSlashSound(); // Suono diverso per indicare immunità
+                  updateBamboo();
+                  window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+                  return;
+                }
                 handleCollision();
                 return;
               }
@@ -2193,6 +2380,22 @@
       function showCharacterSelection() {
         console.log('showCharacterSelection chiamata!');
         gameState = 'characterSelection';
+        
+        // Reset della selezione quando si apre la schermata
+        selectedCharacter = null;
+        console.log('🔄 Reset selectedCharacter a null');
+        
+        // Rimuovi tutte le selezioni visive
+        document.querySelectorAll('.character-option').forEach(option => {
+          option.classList.remove('selected');
+        });
+        
+        // Disabilita il bottone PLAY
+        const startButton = document.getElementById('startButton');
+        if (startButton) {
+          startButton.disabled = true;
+        }
+        
         startScreen.style.display = 'none';
         const characterScreen = document.getElementById('characterSelectionScreen');
         if (characterScreen) {
@@ -2228,24 +2431,55 @@
       }
 
       function selectCharacter(character) {
+        console.log(`selectCharacter chiamata con: ${character}`);
+        
+        // Validazione del parametro
+        if (character !== 'master' && character !== 'student') {
+          console.error(`Personaggio non valido: ${character}`);
+          return;
+        }
+        
+        // Imposta il personaggio selezionato
         selectedCharacter = character;
+        console.log(`selectedCharacter impostato a: ${selectedCharacter}`);
         
         // Rimuovi selezione precedente
         document.querySelectorAll('.character-option').forEach(option => {
           option.classList.remove('selected');
+          console.log(`Rimossa selezione da: ${option.getAttribute('data-character')}`);
         });
         
-        // Aggiungi selezione al personaggio scelto
-        event.target.closest('.character-option').classList.add('selected');
+        // Aggiungi selezione al personaggio scelto usando l'attributo data
+        const characterOption = document.querySelector(`[data-character="${character}"]`);
+        if (characterOption) {
+          characterOption.classList.add('selected');
+          console.log(`Aggiunta selezione a: ${character}`);
+        } else {
+          console.error(`Elemento per personaggio ${character} non trovato`);
+          // Fallback: cerca per onclick
+          const fallbackOption = document.querySelector(`[onclick*="selectCharacter('${character}')"]`);
+          if (fallbackOption) {
+            fallbackOption.classList.add('selected');
+            console.log(`Aggiunta selezione fallback a: ${character}`);
+          }
+        }
         
         // Abilita il bottone start
-        document.getElementById('startButton').disabled = false;
+        const startButton = document.getElementById('startButton');
+        if (startButton) {
+          startButton.disabled = false;
+          console.log('Bottone PLAY abilitato');
+        } else {
+          console.error('Bottone PLAY non trovato');
+        }
         
         // Avvia l'animazione di selezione
         selectionAnimationTimer = 0;
         selectionFrame = 0;
         
-        console.log(`Personaggio selezionato: ${character}`);
+        // Verifica finale
+        console.log(`Personaggio selezionato: ${selectedCharacter}`);
+        console.log(`Elemento selezionato:`, document.querySelector('.character-option.selected'));
       }
 
       function drawCharacterIcons() {
@@ -2303,9 +2537,25 @@
       }
 
       function startGame() {
+        console.log('startGame chiamata, selectedCharacter:', selectedCharacter);
+        console.log('Tipo di selectedCharacter:', typeof selectedCharacter);
+        console.log('Valore esatto di selectedCharacter:', JSON.stringify(selectedCharacter));
+        
         if (!selectedCharacter) {
           alert('Please select a character first!');
           return;
+        }
+        
+        // Verifica finale prima di iniziare
+        if (selectedCharacter === 'student') {
+          console.log('🎯 AVVIO GIOCO CON ALLIEVA');
+        } else if (selectedCharacter === 'master') {
+          console.log('🎯 AVVIO GIOCO CON MAESTRO');
+        } else {
+          console.error('❌ PERSONAGGIO NON RICONOSCIUTO:', selectedCharacter);
+          // Fallback: imposta il Master come default
+          selectedCharacter = 'master';
+          console.log('🔄 Fallback: impostato Master come default');
         }
         
         gameState = 'playing';
@@ -2333,12 +2583,14 @@
         twoXTextTimer = 0;
         borderPulseTimer = 0;
         
+        // Reset sistema Rage dell'Allieva
+        rageBar = 0;
+        rageEffectActive = false;
+        rageEffectTimer = 0;
+        
         // Reset animazione selezione
         selectionAnimationTimer = 0;
         selectionFrame = 0;
-        
-        // Reset selezione personaggio
-        selectedCharacter = null;
         
         AudioManager.init().then(() => {
             AudioManager.isMuted = false;
@@ -2402,12 +2654,14 @@
         twoXTextTimer = 0;
         borderPulseTimer = 0;
         
+        // Reset sistema Rage dell'Allieva
+        rageBar = 0;
+        rageEffectActive = false;
+        rageEffectTimer = 0;
+        
         // Reset animazione selezione
         selectionAnimationTimer = 0;
         selectionFrame = 0;
-        
-        // Reset selezione personaggio
-        selectedCharacter = null;
         
         AudioManager.playIntroMusic();
         
