@@ -915,7 +915,7 @@
       // Sistema Saggezza del Maestro
       let preciseCuts = 0;
       const PRECISE_CUTS_NEEDED = 10;
-      const PRECISION_THRESHOLD = 0.5; // 50% energia = taglio preciso
+      const PRECISION_THRESHOLD = 0.8; // 80% energia = taglio preciso
       let wisdomEffectActive = false;
       let wisdomEffectTimer = 0;
       const WISDOM_EFFECT_DURATION = 600; // 10 secondi a 60 FPS
@@ -936,12 +936,12 @@
       // Effetto scritta 2X
       let show2XText = false;
       let twoXTextTimer = 0;
-      const TWOX_TEXT_DURATION = 60; // 1 secondo a 60 FPS
+      const TWOX_TEXT_DURATION = 600; // 10 secondi a 60 FPS
       
       // Effetto scritta IMMORTALE per l'Allieva
       let showImmortalText = false;
       let immortalTextTimer = 0;
-      const IMMORTAL_TEXT_DURATION = 120; // 2 secondi a 60 FPS
+      const IMMORTAL_TEXT_DURATION = 600; // 10 secondi a 60 FPS
       
       // Effetto pulsante lungo i bordi
       let borderPulseTimer = 0;
@@ -1041,9 +1041,9 @@
           const blinkPhase = Math.sin(twoXTextTimer / blinkSpeed) * 0.5 + 0.5;
           const opacity = blinkPhase;
           
-          // Posizione al centro dello schermo, 30px più in alto
+          // Posizione al centro dello schermo, 50px più in alto
           const centerX = canvas.width / 2;
-          const centerY = canvas.height / 2 - 30;
+          const centerY = canvas.height / 2 - 50;
           
           // Disegna "SCORE" sopra "2X"
           ctx.font = 'bold 36px "Press Start 2P"';
@@ -1084,9 +1084,9 @@
           const blinkPhase = Math.sin(immortalTextTimer / blinkSpeed) * 0.5 + 0.5;
           const opacity = blinkPhase;
           
-          // Posizione al centro dello schermo
+          // Posizione al centro dello schermo, 50px più in alto
           const centerX = canvas.width / 2;
-          const centerY = canvas.height / 2;
+          const centerY = canvas.height / 2 - 50;
           
           // Disegna "RAGE" in rosso
           ctx.font = 'bold 48px "Press Start 2P"';
@@ -2147,20 +2147,20 @@
           }
         }
         
-        // Gestione scritta 2X
-        if (show2XText) {
+        // Gestione scritta 2X - lampeggia per tutti i 10 secondi del potere
+        if (show2XText && wisdomEffectActive) {
           twoXTextTimer++;
-          if (twoXTextTimer >= TWOX_TEXT_DURATION) {
-            show2XText = false;
-          }
+        } else if (!wisdomEffectActive) {
+          show2XText = false;
+          twoXTextTimer = 0;
         }
         
-        // Gestione scritta IMMORTALE
-        if (showImmortalText) {
+        // Gestione scritta RAGE - lampeggia per tutti i 10 secondi del potere
+        if (showImmortalText && rageEffectActive) {
           immortalTextTimer++;
-          if (immortalTextTimer >= IMMORTAL_TEXT_DURATION) {
-            showImmortalText = false;
-          }
+        } else if (!rageEffectActive) {
+          showImmortalText = false;
+          immortalTextTimer = 0;
         }
         
         // Reset contatore tagli precisi se energia troppo bassa (solo se l'effetto non è attivo)
@@ -2369,6 +2369,8 @@
               }
             } else if (selectedCharacter === 'master' && !wisdomEffectActive && energy <= MAX_ENERGY * PRECISION_THRESHOLD && preciseCuts < PRECISE_CUTS_NEEDED) {
               preciseCuts = 0; // Reset se taglio non preciso (solo se non è già piena)
+            } else if (selectedCharacter === 'student' && !rageEffectActive && energy <= MAX_ENERGY * PRECISION_THRESHOLD) {
+              rageBar = 0; // Reset rage bar se taglio non preciso
             }
             
             // Sistema Rage dell'Allieva
@@ -2595,6 +2597,7 @@
           console.log('🔄 Fallback: impostato Master come default');
         }
         
+        console.log('🚀 startGame() chiamata - impostando gameState = playing');
         gameState = 'playing';
         score = 0;
         speed = 2;
@@ -2667,19 +2670,36 @@
       }, { passive: false });
 
       window.FarcadeSDK.on('play_again', () => {
-        gameState = 'playing';
+        console.log('🎮 Farcade play_again chiamato!');
+        // Riporta alla schermata iniziale
+        gameState = 'start';
+        
+        // Nascondi tutte le schermate di gioco
+        const characterScreen = document.getElementById('characterSelectionScreen');
+        if (characterScreen) {
+          characterScreen.style.display = 'none';
+        }
+        
+        // Nascondi i controlli di gioco
+        const controls = document.querySelector('.controls');
+        if (controls) {
+          controls.style.display = 'none';
+          controls.style.pointerEvents = 'none';
+        }
+        
+        // Mostra la schermata iniziale
+        startScreen.style.display = 'flex';
+        
+        // Reset di tutti i valori del gioco
         score = 0;
         speed = 2;
         ninjaPosition = 'left';
         isHurt = false;
-        startScreen.style.display = 'none';
-        document.querySelector('.controls').style.display = 'flex';
-        document.querySelector('.controls').style.pointerEvents = 'auto';
         energy = MAX_ENERGY;
         currentEnergyDecay = INITIAL_ENERGY_DECAY;
         cycleStartTime = Date.now();
         isDogActive = false;
-        lastDogDirection = 1; // Reset dell'ultima direzione
+        lastDogDirection = 1;
         scheduleNextDog();
         
         // Reset sistema Saggezza del Maestro
@@ -2695,14 +2715,43 @@
         rageBar = 0;
         rageEffectActive = false;
         rageEffectTimer = 0;
+        showImmortalText = false;
+        immortalTextTimer = 0;
         
         // Reset animazione selezione
         selectionAnimationTimer = 0;
         selectionFrame = 0;
         
+        // Reset selezione personaggio
+        selectedCharacter = null;
+        
         AudioManager.playIntroMusic();
         
         initializeBamboo();
+        
+        console.log('🎮 Reset completato, schermata iniziale mostrata');
+        
+        // Forza il reset dopo un delay per assicurarsi che abbia effetto
+        setTimeout(() => {
+          console.log('🔄 Controllo timeout - gameState attuale:', gameState);
+          if (gameState !== 'start') {
+            console.log('🔄 Forzando reset alla schermata iniziale...');
+            gameState = 'start';
+            startScreen.style.display = 'flex';
+            const controls = document.querySelector('.controls');
+            if (controls) {
+              controls.style.display = 'none';
+              controls.style.pointerEvents = 'none';
+            }
+            const characterScreen = document.getElementById('characterSelectionScreen');
+            if (characterScreen) {
+              characterScreen.style.display = 'none';
+            }
+            console.log('🔄 Reset forzato completato');
+          } else {
+            console.log('✅ gameState già corretto');
+          }
+        }, 500);
       });
 
       // Add Farcade SDK mute handler
