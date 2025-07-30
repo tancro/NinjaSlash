@@ -80,7 +80,7 @@
       }
 
       #startScreen {
-        background-image: url('https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/start-screen-0cN4V5shFPgXrTHIESjnlafGMJgrrf.png?vDIC');
+        background-image: url('https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/start-sea-c1myd0LkgahRJOu4CNJnYTrMC2nem8.png?nnK7');
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -165,26 +165,32 @@
 
       .start-button {
         position: absolute;
-        top: 250px;
+        bottom: 50px;
+        left: 50%;
+        transform: translateX(-50%);
         padding: 15px 30px;
         font-size: 24px;
         font-family: 'Press Start 2P', cursive;
-        background: rgba(210, 47, 34, 0.9);
-        border: 3px solid #6c110a;
+        background: #1868B7;
+        border: 3px solid #2BCDE4;
         border-radius: 10px;
         color: #ffffff;
         cursor: pointer;
         transition: transform 0.1s, background-color 0.2s;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        text-shadow: 2px 2px 4px rgba(229, 232, 235, 0.3);
+        box-shadow: 0 4px 8px rgba(24, 104, 183, 0.3);
       }
 
       .start-button:hover {
-        background: rgba(108, 17, 10, 0.9);
-        transform: scale(1.05);
+        background: #2081E2;
+        transform: translateX(-50%) scale(1.05);
+        box-shadow: 0 6px 12px rgba(32, 129, 226, 0.4);
       }
 
       .start-button:active {
-        transform: scale(0.95);
+        background: #15B2E5;
+        transform: translateX(-50%) scale(0.95);
+        box-shadow: 0 2px 4px rgba(21, 178, 229, 0.3);
       }
 
 
@@ -328,22 +334,26 @@
         margin-top: -40px;
         padding: 15px 30px;
         font-size: 20px;
-        background: rgba(210, 47, 34, 0.9);
-        border: 3px solid #6c110a;
+        background: #1868B7;
+        border: 3px solid #2BCDE4;
         border-radius: 10px;
         color: #ffffff;
         cursor: pointer;
         transition: transform 0.1s, background-color 0.2s;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        text-shadow: 2px 2px 4px rgba(229, 232, 235, 0.3);
+        box-shadow: 0 4px 8px rgba(24, 104, 183, 0.3);
       }
 
       #characterSelectionScreen .start-button:hover {
-        background: rgba(108, 17, 10, 0.9);
+        background: #2081E2;
         transform: scale(1.05);
+        box-shadow: 0 6px 12px rgba(32, 129, 226, 0.4);
       }
 
       #characterSelectionScreen .start-button:active {
+        background: #15B2E5;
         transform: scale(0.95);
+        box-shadow: 0 2px 4px rgba(21, 178, 229, 0.3);
       }
 
       .controls {
@@ -416,7 +426,6 @@
         <canvas id="gameCanvas"></canvas>
         </div>
         <div id="startScreen" class="screen">
-            <p>Cut the bamboo while avoiding the branches! Make sure to act before your energy runs out!<br>Hit the ninja to get more points!</p>
             <button class="start-button" id="mainStartButton">START</button>
         </div>
 
@@ -761,7 +770,7 @@
 
       // Carica l'immagine dello sfondo
       const backgroundImage = new Image();
-      backgroundImage.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/backgroun2-FfUYeCvhyjXv5Z46IsmwOmBajOrEJd.png?qJ3z';
+      backgroundImage.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/background-sea-bQlMIZ5QkJwZpH9JbGvW7Sm3TztyFx.png?QLF2';
       let backgroundImageLoaded = false;
       backgroundImage.onload = () => {
         backgroundImageLoaded = true;
@@ -793,7 +802,7 @@
 
       // Carica l'immagine del nemico (ninja cattivo)
       const enemyImage = new Image();
-      enemyImage.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/bad-ninja-MLAvqwXKY0VgirgoqdAx1jBXyslf6M.png?y8aN';
+      enemyImage.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/ninja-blu-5kwGsOo1DH13hmQVi5mgpIwMAqy7U4.png?Pyym';
       let enemyImageLoaded = false;
       let enemyOriginalWidth = 100;
       let enemyOriginalHeight = 100;
@@ -1331,9 +1340,8 @@
               ctx.globalAlpha = this.enemyFadeOut;
               
               if (enemyImageLoaded) {
-                const enemyHeight = 100;
-                const scale = enemyHeight / enemyOriginalHeight;
-                const enemyWidth = enemyOriginalWidth * scale;
+                const enemyHeight = enemyOriginalHeight;
+                const enemyWidth = enemyOriginalWidth;
                 
                 const distanceFromBamboo = BRANCH_WIDTH/2 + enemyWidth/2 - 20;
                 
