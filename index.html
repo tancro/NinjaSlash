@@ -11,41 +11,37 @@
     body {
       margin: 0;
       padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
       background: #000;
       font-family: 'Press Start 2P', cursive;
-      overflow: hidden;
+      /* Nessun flex centering, il gioco riempie la larghezza */
+      overflow-x: hidden;
     }
 
-    /* Contenitore principale del gioco - UNICO wrapper necessario */
+    /* Contenitore principale del gioco - MOBILE ONLY */
     .game-container {
       position: relative;
+      background: #3d9f00;
       overflow: hidden;
       flex-shrink: 0;
 
       /* 
-         SOLUZIONE DEFINITIVA ANTI-DISTORSIONE:
-         Il contenitore calcola le sue dimensioni per "entrare" nello schermo
-         mantenendo SEMPRE il rapporto 2:3. Non usiamo più width: 100%
-         perché su desktop stirerebbe l'immagine orizzontalmente.
+         ADATTAMENTO LARGHEZZA RESPONSIVE:
+         Facciamo corrispondere la dimensione del gioco alla larghezza dello schermo.
+         L'altezza viene riproporzionata a 2:3 (1.5 volte la larghezza).
       */
-      width: min(100vw, calc(100vh * 2 / 3));
-      height: min(100vh, calc(100vw * 3 / 2));
+      width: 100vw;
+      height: 150vw;
 
-      /* Garantisce che il rapporto rimanga 2:3 in ogni caso */
-      aspect-ratio: 2 / 3;
-
-      margin: auto;
+      margin: 0;
     }
 
-    /* Il canvas riempie il contenitore senza distorsioni */
+    /* Il canvas riempie il contenitore perfettamente */
     #gameCanvas {
       display: block;
       width: 100%;
       height: 100%;
+      image-rendering: pixelated;
+      /* Mantiene gli asset nitidi */
     }
 
     #ui {
@@ -874,6 +870,7 @@
 
     // Calcola le posizioni verticali
     const FLOOR_Y = canvas.height - FLOOR_HEIGHT;
+    // NINJA_SIZE è l'altezza base, la larghezza dipenderà dal frame
     const NINJA_Y = FLOOR_Y - NINJA_SIZE;
     const BAMBOO_BASE_Y = FLOOR_Y - BAMBOO_SECTION_HEIGHT;
 
@@ -1487,20 +1484,20 @@
 
       if (selectedCharacter === 'student') {
         // Dimensioni per lo Student (ragazza)
-        ninjaDrawWidth = 54; // Larghezza idle
-        attackWidth = 126; // Larghezza attacco (aggiornata)
+        ninjaDrawWidth = 54; // Larghezza idle (corrisponde a idleFrameWidth)
+        attackWidth = 126; // Larghezza attacco 
         hurtWidth = 56; // Larghezza ferito
         idleFrameWidth = 54;
-        attackFrameWidth = 126; // Larghezza frame attacco (aggiornata)
+        attackFrameWidth = 126;
         hurtFrameWidth = 56;
         idleFrameCount = 5;
         attackFrameCount = 5;
         hurtFrameCount = 3;
       } else {
         // Dimensioni per il Master (default)
-        ninjaDrawWidth = NINJA_SIZE / 2; // Larghezza idle (50px)
-        attackWidth = ATTACK_FRAME_WIDTH; // Larghezza attacco = larghezza frame sprite (140px)
-        hurtWidth = NINJA_SIZE / 2; // Larghezza ferito
+        ninjaDrawWidth = NINJA_IDLE_FRAME_WIDTH; // 55px (non più 50px!)
+        attackWidth = ATTACK_FRAME_WIDTH; // 140px
+        hurtWidth = HURT_FRAME_WIDTH; // 54px
         idleFrameWidth = NINJA_IDLE_FRAME_WIDTH;
         attackFrameWidth = ATTACK_FRAME_WIDTH;
         hurtFrameWidth = HURT_FRAME_WIDTH;
@@ -2052,9 +2049,33 @@
 
       ctx.translate(shakeOffsetX, shakeOffsetY);
 
-      // Disegna sempre lo sfondo (anche per la schermata di selezione)
+      // Disegna sfondo (con logica 'cover' per non deformare)
       if (backgroundImageLoaded) {
-        ctx.drawImage(backgroundImage, 0, 0, canvas.width, FLOOR_Y);
+        const bgWidth = backgroundImage.naturalWidth;
+        const bgHeight = backgroundImage.naturalHeight;
+        const targetWidth = canvas.width;
+        const targetHeight = FLOOR_Y;
+
+        const bgRatio = bgWidth / bgHeight;
+        const targetRatio = targetWidth / targetHeight;
+
+        let drawWidth, drawHeight, offsetX, offsetY;
+
+        if (bgRatio > targetRatio) {
+          // L'immagine è più larga del target
+          drawHeight = targetHeight;
+          drawWidth = targetHeight * bgRatio;
+          offsetX = (targetWidth - drawWidth) / 2;
+          offsetY = 0;
+        } else {
+          // L'immagine è più alta del target
+          drawWidth = targetWidth;
+          drawHeight = targetWidth / bgRatio;
+          offsetX = 0;
+          offsetY = (targetHeight - drawHeight) / 2;
+        }
+
+        ctx.drawImage(backgroundImage, offsetX, offsetY, drawWidth, drawHeight);
       } else {
         ctx.fillStyle = '#87CEEB';
         ctx.fillRect(0, 0, canvas.width, FLOOR_Y);
@@ -2524,13 +2545,16 @@
         const masterCtx = masterCanvas.getContext('2d');
         masterCtx.clearRect(0, 0, 80, 120);
 
+        const drawWidth = 120 * (55 / 100); // 66px
+        const offsetX = (80 - drawWidth) / 2;
+
         // Se Master è selezionato, usa l'animazione
         if (selectedCharacter === 'master') {
           const frameX = selectionFrame * 55; // 55px per frame
-          masterCtx.drawImage(masterSelectionSprite, frameX, 0, 55, 100, 0, 0, 80, 120);
+          masterCtx.drawImage(masterSelectionSprite, frameX, 0, 55, 100, offsetX, 0, drawWidth, 120);
         } else {
           // Frame statico se non selezionato
-          masterCtx.drawImage(masterSelectionSprite, 0, 0, 55, 100, 0, 0, 80, 120);
+          masterCtx.drawImage(masterSelectionSprite, 0, 0, 55, 100, offsetX, 0, drawWidth, 120);
         }
       }
 
@@ -2547,13 +2571,16 @@
         studentCtx.translate(80, 0); // Sposta l'origine a destra
         studentCtx.scale(-1, 1); // Capovolgi orizzontalmente
 
+        const drawWidth = 120 * (54 / 100); // 64.8px
+        const offsetX = (80 - drawWidth) / 2;
+
         // Se Student è selezionato, usa l'animazione
         if (selectedCharacter === 'student') {
           const frameX = selectionFrame * 54; // 54px per frame
-          studentCtx.drawImage(studentIdleSprite, frameX, 0, 54, 100, 0, 0, 80, 120);
+          studentCtx.drawImage(studentIdleSprite, frameX, 0, 54, 100, offsetX, 0, drawWidth, 120);
         } else {
           // Frame statico se non selezionato
-          studentCtx.drawImage(studentIdleSprite, 0, 0, 54, 100, 0, 0, 80, 120);
+          studentCtx.drawImage(studentIdleSprite, 0, 0, 54, 100, offsetX, 0, drawWidth, 120);
         }
 
         // Ripristina il contesto
