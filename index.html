@@ -446,18 +446,25 @@
     const leftBtn = document.getElementById('leftBtn');
     const rightBtn = document.getElementById('rightBtn');
 
-    // Asset loading management (Moved to the top)
+    // Asset loading management
     let assetsLoaded = 0;
-    const totalAssets = 16; // Aggiornato a 16 per includere gli sprite dello Student
+    const soundURLs = {
+      introMusic: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/intro-V0REAtuG7BtkbzSJBnYTPz1ID9u6T4.mpeg?d8mA',
+      loopMusic: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/loop-7j3HNOa8LOWIAdhVMXq6aqQJzdz9hm.mpeg?pYj0',
+      slashSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/cut-OEi7bxq0z99c9CS9rbs55SsW8H7BY8.mpeg?bzpJ',
+      collisionSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/crack2-oiZkiOTmIg8ZEPAjfrgpVbyJrHICUl.mpeg?Z1Fv',
+      ninjaHitSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/hit-hvxK4INhLVlMkKQ2ikDh8Lsqwo1bbP.mpeg?xl4F'
+    };
+
+    // 11 images + 5 sounds = 16 total assets
+    const totalAssets = 11 + Object.keys(soundURLs).length;
 
     function assetLoaded(assetName) {
       assetsLoaded++;
       console.log(`Asset caricato: ${assetName} (${assetsLoaded}/${totalAssets})`);
       if (assetsLoaded === totalAssets) {
-        console.log('Tutti gli asset sono stati caricati! Ready to start.');
-        // Potremmo mostrare il bottone start qui o abilitarlo
-        // startScreen.style.display = 'flex'; // Assicurati sia visibile
-        // document.querySelector('.start-button').disabled = false; // Abilita bottone
+        console.log('Tutti gli asset sono stati caricati!');
+        // Se l'SDK è pronto, potremmo segnalare qui
       }
     }
 
@@ -498,179 +505,146 @@
 
     const AudioManager = {
       audioContext: null,
-      introMusic: null,
-      loopMusic: null,
-      slashSound: null,
-      collisionSound: null,
-      coinSound: null,
-      ninjaHitSound: null,
+      bgmGainNode: null,
+      sfxGainNode: null,
+      sounds: {},
       isMuted: false,
-      bgMusicGainNode: null,
       currentMusicSource: null,
-
-      // URL dei suoni
-      soundURLs: {
-        introMusic: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/intro-V0REAtuG7BtkbzSJBnYTPz1ID9u6T4.mpeg?d8mA',
-        loopMusic: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/loop-7j3HNOa8LOWIAdhVMXq6aqQJzdz9hm.mpeg?pYj0',
-        slashSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/cut-OEi7bxq0z99c9CS9rbs55SsW8H7BY8.mpeg?bzpJ',
-        collisionSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/crack2-oiZkiOTmIg8ZEPAjfrgpVbyJrHICUl.mpeg?Z1Fv',
-        ninjaHitSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/hit-hvxK4INhLVlMkKQ2ikDh8Lsqwo1bbP.mpeg?xl4F'
-      },
 
       async init() {
         if (!this.audioContext) {
-          this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-          this.bgMusicGainNode = this.audioContext.createGain();
-          this.bgMusicGainNode.gain.value = 0.1;
-          this.bgMusicGainNode.connect(this.audioContext.destination);
+          try {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-          await this.loadSounds();
+            // Central BGM Gain
+            this.bgmGainNode = this.audioContext.createGain();
+            this.bgmGainNode.gain.value = this.isMuted ? 0 : 0.15;
+            this.bgmGainNode.connect(this.audioContext.destination);
+
+            // Central SFX Gain
+            this.sfxGainNode = this.audioContext.createGain();
+            this.sfxGainNode.gain.value = this.isMuted ? 0 : 0.4;
+            this.sfxGainNode.connect(this.audioContext.destination);
+
+            await this.loadAllSounds();
+
+            // Gestione visibilità per sospendere audio
+            document.addEventListener('visibilitychange', () => {
+              if (document.hidden) {
+                this.audioContext.suspend();
+              } else {
+                this.audioContext.resume();
+              }
+            });
+
+          } catch (e) {
+            console.error('Web Audio API non supportata:', e);
+          }
         }
         return this;
       },
 
-      async loadSounds() {
-        try {
-          this.introMusic = await this.loadSound(this.soundURLs.introMusic);
-          this.loopMusic = await this.loadSound(this.soundURLs.loopMusic);
-          this.slashSound = await this.loadSound(this.soundURLs.slashSound);
-          this.collisionSound = await this.loadSound(this.soundURLs.collisionSound);
-          this.coinSound = await this.loadSound(this.soundURLs.coinSound);
-          this.ninjaHitSound = await this.loadSound(this.soundURLs.ninjaHitSound);
-          console.log('Tutti i suoni caricati con successo');
-        } catch (error) {
-          console.error('Errore nel caricamento dei suoni:', error);
+      async resume() {
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+          await this.audioContext.resume();
         }
+      },
+
+      async loadAllSounds() {
+        const promises = Object.entries(soundURLs).map(async ([name, url]) => {
+          const buffer = await this.loadSound(url);
+          this.sounds[name] = buffer;
+          assetLoaded(`sound:${name}`);
+        });
+        await Promise.all(promises);
       },
 
       async loadSound(url) {
         try {
           const response = await fetch(url);
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
           const arrayBuffer = await response.arrayBuffer();
+          // Modern Promise-based decodeAudioData with callback fallback
           return await new Promise((resolve, reject) => {
-            this.audioContext.decodeAudioData(
-              arrayBuffer,
-              (buffer) => resolve(buffer),
-              (error) => {
-                console.error('Errore nella decodifica audio:', error);
-                resolve(null); // Risolve con null invece di reject
-              }
-            );
+            const successCallback = (buffer) => resolve(buffer);
+            const errorCallback = (error) => {
+              console.error('Errore decodifica:', error);
+              resolve(null);
+            };
+
+            const promise = this.audioContext.decodeAudioData(arrayBuffer, successCallback, errorCallback);
+            if (promise && typeof promise.then === 'function') {
+              promise.then(successCallback).catch(errorCallback);
+            }
           });
         } catch (error) {
-          console.error('Errore nel caricamento del suono:', error);
-          return null; // Ritorna null in caso di errore
+          console.error(`Errore caricamento sound ${url}:`, error);
+          return null;
         }
       },
 
-      stopCurrentMusic() {
+      playBGM(name, loop = true) {
+        if (!this.sounds[name] || !this.audioContext) return;
+        this.stopBGM();
+
+        const source = this.audioContext.createBufferSource();
+        source.buffer = this.sounds[name];
+        source.loop = loop;
+        source.connect(this.bgmGainNode);
+
+        if (name === 'introMusic') {
+          source.onended = () => {
+            if (gameState === 'playing' && name === 'introMusic') {
+              this.playBGM('loopMusic', true);
+            }
+          };
+        }
+
+        source.start(0);
+        this.currentMusicSource = source;
+      },
+
+      stopBGM() {
         if (this.currentMusicSource) {
-          this.currentMusicSource.stop();
+          try {
+            this.currentMusicSource.stop();
+          } catch (e) { }
           this.currentMusicSource.disconnect();
           this.currentMusicSource = null;
         }
       },
 
-      playIntroMusic() {
-        if (this.isMuted || !this.introMusic || !this.audioContext) return;
-
-        this.stopCurrentMusic();
+      playSound(name, volumeScale = 1) {
+        if (this.isMuted || !this.sounds[name] || !this.audioContext) return;
 
         const source = this.audioContext.createBufferSource();
-        source.buffer = this.introMusic;
-        source.connect(this.bgMusicGainNode);
+        source.buffer = this.sounds[name];
 
-        source.onended = () => {
-          if (gameState === 'playing') {
-            this.playLoopMusic();
-          }
-        };
+        // Se vogliamo variazioni individuali, creiamo un gain temporaneo collegato al sfxGainNode
+        const tempGain = this.audioContext.createGain();
+        tempGain.gain.value = volumeScale;
 
-        source.start(0);
-        this.currentMusicSource = source;
-      },
+        source.connect(tempGain);
+        tempGain.connect(this.sfxGainNode);
 
-      playLoopMusic() {
-        if (this.isMuted || !this.loopMusic || !this.audioContext) return;
-
-        this.stopCurrentMusic();
-
-        const source = this.audioContext.createBufferSource();
-        source.buffer = this.loopMusic;
-        source.connect(this.bgMusicGainNode);
-        source.loop = true;
-        source.start(0);
-        this.currentMusicSource = source;
-      },
-
-      playSlashSound() {
-        if (this.isMuted || !this.slashSound || !this.audioContext) return;
-
-        const source = this.audioContext.createBufferSource();
-        source.buffer = this.slashSound;
-        const effectGainNode = this.audioContext.createGain();
-        effectGainNode.gain.value = 0.2;
-        source.connect(effectGainNode);
-        effectGainNode.connect(this.audioContext.destination);
         source.start(0);
       },
 
-      playCollisionSound() {
-        if (this.isMuted || !this.collisionSound || !this.audioContext) return;
-
-        const source = this.audioContext.createBufferSource();
-        source.buffer = this.collisionSound;
-        const effectGainNode = this.audioContext.createGain();
-        effectGainNode.gain.value = 0.2;
-        source.connect(effectGainNode);
-        effectGainNode.connect(this.audioContext.destination);
-        source.start(0);
-      },
-
-      playCoinSound() {
-        if (this.isMuted || !this.coinSound || !this.audioContext) return;
-
-        const source = this.audioContext.createBufferSource();
-        source.buffer = this.coinSound;
-        const effectGainNode = this.audioContext.createGain();
-        effectGainNode.gain.value = 0.3;
-        source.connect(effectGainNode);
-        effectGainNode.connect(this.audioContext.destination);
-        source.start(0);
-      },
-
-      playNinjaHitSound() {
-        if (this.isMuted || !this.audioContext) return;
-
-        // Se il suono ninja non è disponibile, usa il suono di taglio come fallback
-        const soundBuffer = this.ninjaHitSound || this.slashSound;
-        if (!soundBuffer) return;
-
-        try {
-          const source = this.audioContext.createBufferSource();
-          source.buffer = soundBuffer;
-          const effectGainNode = this.audioContext.createGain();
-          effectGainNode.gain.value = 0.64; // Ridotto da 0.8 a 0.64 (riduzione del 20%)
-          source.connect(effectGainNode);
-          effectGainNode.connect(this.audioContext.destination);
-          source.start(0);
-        } catch (error) {
-          console.error('Errore nella riproduzione del suono:', error);
-        }
-      },
+      // Metodi specifici mappati per compatibilità con codice esistente
+      playIntroMusic() { this.playBGM('introMusic', false); },
+      playLoopMusic() { this.playBGM('loopMusic', true); },
+      playSlashSound() { this.playSound('slashSound', 0.5); },
+      playCollisionSound() { this.playSound('collisionSound', 0.6); },
+      playCoinSound() { this.playSound('coinSound', 0.7); },
+      playNinjaHitSound() { this.playSound('ninjaHitSound', 0.64); },
+      stopCurrentMusic() { this.stopBGM(); },
 
       toggleMute(muted) {
         this.isMuted = muted;
-        if (this.bgMusicGainNode) {
-          this.bgMusicGainNode.gain.value = this.isMuted ? 0 : 0.1;
-        }
+        if (this.bgmGainNode) this.bgmGainNode.gain.setTargetAtTime(this.isMuted ? 0 : 0.15, this.audioContext.currentTime, 0.1);
+        if (this.sfxGainNode) this.sfxGainNode.gain.setTargetAtTime(this.isMuted ? 0 : 0.4, this.audioContext.currentTime, 0.1);
+
         if (!this.isMuted && gameState === 'playing' && !this.currentMusicSource) {
-          this.playLoopMusic();
-        } else if (this.isMuted && this.currentMusicSource) {
-          this.stopCurrentMusic();
+          this.playBGM('loopMusic');
         }
       }
     };
@@ -2611,6 +2585,13 @@
       }
 
       console.log('🚀 startGame() chiamata - impostando gameState = playing');
+
+      // Assicura che l'audio context sia attivo dopo l'interazione
+      AudioManager.init().then(() => {
+        AudioManager.resume();
+        AudioManager.playIntroMusic();
+      });
+
       gameState = 'playing';
       score = 0;
       speed = 2;
@@ -2641,15 +2622,12 @@
       rageBar = 0;
       rageEffectActive = false;
       rageEffectTimer = 0;
+      showImmortalText = false;
+      immortalTextTimer = 0;
 
       // Reset animazione selezione
       selectionAnimationTimer = 0;
       selectionFrame = 0;
-
-      AudioManager.init().then(() => {
-        AudioManager.isMuted = false;
-        AudioManager.playIntroMusic();
-      });
 
       initializeBamboo();
       window.FarcadeSDK.singlePlayer.actions.ready();
@@ -2697,15 +2675,21 @@
       handleInput(e.touches[0].clientX);
     }, { passive: false });
 
+    // Farcade SDK Handlers
+    window.FarcadeSDK.onToggleMute((data) => {
+      console.log('🔇 Farcade toggle_mute:', data.isMuted);
+      AudioManager.toggleMute(data.isMuted);
+    });
+
     window.FarcadeSDK.onPlayAgain(() => {
       console.log('🎮 Farcade play_again chiamato!');
       // Riporta alla schermata iniziale
       gameState = 'start';
 
       // Nascondi tutte le schermate di gioco
-      const characterScreen = document.getElementById('characterSelectionScreen');
-      if (characterScreen) {
-        characterScreen.style.display = 'none';
+      const charScreen = document.getElementById('characterSelectionScreen');
+      if (charScreen) {
+        charScreen.style.display = 'none';
       }
 
       // Nascondi i controlli di gioco
@@ -2730,7 +2714,7 @@
       lastDogDirection = 1;
       scheduleNextDog();
 
-      // Reset sistema Saggezza del Maestro
+      // Reset sistemi personaggi
       preciseCuts = 0;
       wisdomEffectActive = false;
       wisdomEffectTimer = 0;
@@ -2739,65 +2723,42 @@
       twoXTextTimer = 0;
       borderPulseTimer = 0;
 
-      // Reset sistema Rage dell'Allieva
       rageBar = 0;
       rageEffectActive = false;
       rageEffectTimer = 0;
       showImmortalText = false;
       immortalTextTimer = 0;
 
-      // Reset animazione selezione
-      selectionAnimationTimer = 0;
-      selectionFrame = 0;
-
-      // Reset selezione personaggio
       selectedCharacter = null;
 
+      AudioManager.stopCurrentMusic();
       AudioManager.playIntroMusic();
 
       initializeBamboo();
-
       console.log('🎮 Reset completato, schermata iniziale mostrata');
-
-      // Forza il reset dopo un delay per assicurarsi che abbia effetto
-      setTimeout(() => {
-        console.log('🔄 Controllo timeout - gameState attuale:', gameState);
-        if (gameState !== 'start') {
-          console.log('🔄 Forzando reset alla schermata iniziale...');
-          gameState = 'start';
-          startScreen.style.display = 'flex';
-          const controls = document.querySelector('.controls');
-          if (controls) {
-            controls.style.display = 'none';
-            controls.style.pointerEvents = 'none';
-          }
-          const characterScreen = document.getElementById('characterSelectionScreen');
-          if (characterScreen) {
-            characterScreen.style.display = 'none';
-          }
-          console.log('🔄 Reset forzato completato');
-        } else {
-          console.log('✅ gameState già corretto');
-        }
-      }, 500);
     });
 
-    // Add Farcade SDK mute handler
-    window.FarcadeSDK.onToggleMute((data) => {
-      AudioManager.toggleMute(data.isMuted);
-    });
-
-    // Debug: aggiungi event listener per il bottone start
+    // Inizializza l'AudioManager al caricamento del DOM e gestisce il resume
     document.addEventListener('DOMContentLoaded', () => {
+      AudioManager.init();
+
       const startButton = document.getElementById('mainStartButton');
       if (startButton) {
         startButton.addEventListener('click', (e) => {
-          console.log('Bottone START cliccato via event listener!');
+          console.log('Bottone START cliccato!');
           e.preventDefault();
+          AudioManager.resume();
           showCharacterSelection();
         });
-      } else {
-        console.error('Bottone mainStartButton non trovato!');
+      }
+    });
+
+    // Per sicurezza, se il gioco rimane bloccato in caricamento o gameover
+    window.addEventListener('focus', () => {
+      if (gameState === 'playing' && startScreen.style.display !== 'none') {
+        console.log('⚠️ Stato inconsistente rilevato su focus, correggo...');
+        startScreen.style.display = 'none';
+        document.getElementById('characterSelectionScreen').style.display = 'none';
       }
     });
 
