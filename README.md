@@ -37,7 +37,7 @@ Your game should:
 ## Add Farcade SDK
 
 1. Add this script tag to load the SDK in the head section:
-<script src="https://unpkg.com/@farcade/game-sdk@latest/dist/index.min.js"></script>
+<script src="https://unpkg.com/@farcade/game-sdk@0.3.0/dist/index.min.js"></script>
 
 2. Add these SDK calls to the game (these are easy to add with ai prompting)
 
@@ -51,13 +51,13 @@ window.FarcadeSDK.singlePlayer.actions.gameOver({ score: scoreValue });
 window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
 
 // Add this to handle play again requests:
-window.FarcadeSDK.on('play_again', () => {
+window.FarcadeSDK.onPlayAgain(() => {
 // Reset the game state here
 // For example: resetGame(), startNewGame(), etc.
 });
 
 // Add this to handle mute/unmute:
-window.FarcadeSDK.on('toggle_mute', (data) => {
+window.FarcadeSDK.onToggleMute((data) => {
 // Set game audio based on data.isMuted
 // For example: setMuted(data.isMuted)
 });
