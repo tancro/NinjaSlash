@@ -186,7 +186,8 @@
 
     #characterSelectionScreen {
       background: rgba(0, 0, 0, 0.4);
-      backdrop-filter: blur(8px);
+      backdrop-filter: blur(15px) saturate(180%);
+      -webkit-backdrop-filter: blur(15px) saturate(180%);
       width: 100% !important;
       height: 100% !important;
       position: absolute !important;
@@ -202,6 +203,7 @@
       visibility: visible;
       opacity: 1;
       box-sizing: border-box;
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     #characterSelectionScreen h2 {
@@ -233,29 +235,45 @@
     }
 
     .character-option {
-      background: rgba(0, 0, 0, 0.4);
+      background: rgba(255, 255, 255, 0.05);
       backdrop-filter: blur(10px);
-      border: 2px solid rgba(255, 255, 255, 0.3);
+      border: 2px solid rgba(255, 255, 255, 0.2);
       border-radius: 15px;
       padding: 20px;
       cursor: pointer;
       transition: all 0.3s ease;
       min-width: 140px;
       text-align: center;
+      position: relative;
+    }
+
+    /* Aura e Glow */
+    .character-option[data-character="master"] {
+      --char-color: #00f2ff;
+      --char-glow: rgba(0, 242, 255, 0.3);
+    }
+
+    .character-option[data-character="student"] {
+      --char-color: #ff3e3e;
+      --char-glow: rgba(255, 62, 62, 0.3);
     }
 
     .character-option:hover {
-      background: rgba(0, 0, 0, 0.6);
-      border-color: rgba(255, 255, 255, 0.8);
-      transform: scale(1.05);
-      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--char-color);
+      box-shadow: 0 0 15px var(--char-glow);
     }
 
     .character-option.selected {
-      background: rgba(255, 215, 0, 0.2);
-      border-color: rgba(255, 215, 0, 0.9);
-      box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
-      transform: scale(1.02);
+      background: rgba(255, 255, 255, 0.15);
+      border-color: var(--char-color);
+      box-shadow: 0 0 25px var(--char-glow), inset 0 0 10px var(--char-glow);
+    }
+
+    /* Effetto Focus: desatura l'altro */
+    .character-options.has-selection .character-option:not(.selected) {
+      opacity: 0.6;
+      filter: grayscale(0.5);
     }
 
     .character-icon {
@@ -323,20 +341,20 @@
       margin-top: -40px;
       padding: 15px 30px;
       font-size: 20px;
-      background: #1868B7;
-      border: 3px solid #2BCDE4;
+      background: linear-gradient(135deg, #1868B7 0%, #2081E2 100%);
+      border: 3px solid rgba(255, 255, 255, 0.4);
       border-radius: 10px;
       color: #ffffff;
       cursor: pointer;
-      transition: transform 0.1s, background-color 0.2s;
-      text-shadow: 2px 2px 4px rgba(229, 232, 235, 0.3);
-      box-shadow: 0 4px 8px rgba(24, 104, 183, 0.3);
+      transition: all 0.3s;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
     }
 
-    #characterSelectionScreen .start-button:hover {
-      background: #2081E2;
-      transform: scale(1.05);
-      box-shadow: 0 6px 12px rgba(32, 129, 226, 0.4);
+    #characterSelectionScreen .start-button:hover:not(:disabled) {
+      background: linear-gradient(135deg, #2081E2 0%, #15B2E5 100%);
+      box-shadow: 0 0 15px rgba(32, 129, 226, 0.5);
     }
 
     #characterSelectionScreen .start-button:active {
@@ -483,7 +501,14 @@
     const TRANSITION_DURATION = 5000; // 5 secondi per le transizioni
     const TOTAL_CYCLE_DURATION = DAY_DURATION + NIGHT_DURATION + (TRANSITION_DURATION * 2);
     let cycleStartTime = 0;
-    let timeOfDay = 0;
+
+    // Static stars to avoid random flickering every frame
+    const stars = Array.from({ length: 50 }, () => ({
+      x: Math.random(),
+      y: Math.random() * 0.7,
+      size: Math.random() * 2 + 1,
+      phase: Math.random() * Math.PI * 2
+    }));
 
     // Funzione per attivare l'effetto shake
     function startShake(intensity = 15) {
@@ -1190,10 +1215,11 @@
         this.enemyIsFading = false;
         this.enemyHasAppeared = false;
 
-        if (forceNoBranch) {
+        if (forceNoBranch || gameState === 'tutorial') {
           this.hasBranch = false;
           return;
         }
+
 
         if (!lastBranchInfo || lastBranchInfo.safeDistance >= 1) {
           let branchProbability;
@@ -1680,101 +1706,88 @@
       const elapsedTime = Date.now() - cycleStartTime;
       const cycleTime = elapsedTime % TOTAL_CYCLE_DURATION;
 
+      // Day phase
       if (cycleTime < DAY_DURATION) {
         return { phase: 'day', intensity: 0 };
       }
 
+      // Sunset phase (Getting darker)
       if (cycleTime < DAY_DURATION + TRANSITION_DURATION) {
         const progress = (cycleTime - DAY_DURATION) / TRANSITION_DURATION;
+        const eased = easeInOutQuad(progress);
         return {
           phase: 'sunset',
-          intensity: easeInOutQuad(progress),
-          nightProgress: easeInOutQuad(progress)
+          intensity: eased,
+          nightProgress: eased
         };
       }
 
+      // Night phase (Staying dark)
       if (cycleTime < DAY_DURATION + TRANSITION_DURATION + NIGHT_DURATION) {
-        const progress = (cycleTime - (DAY_DURATION + TRANSITION_DURATION)) / NIGHT_DURATION;
         return {
           phase: 'night',
-          intensity: 1 - easeInOutQuad(progress),
+          intensity: 1,
           nightProgress: 1
         };
       }
 
+      // Sunrise phase (Getting lighter)
       const progress = (cycleTime - (DAY_DURATION + TRANSITION_DURATION + NIGHT_DURATION)) / TRANSITION_DURATION;
+      const eased = easeInOutQuad(progress);
       return {
         phase: 'sunrise',
-        intensity: easeInOutQuad(progress),
-        nightProgress: 1 - easeInOutQuad(progress)
+        intensity: 1 - eased,
+        nightProgress: 1 - eased
       };
     }
+
+    const blendColors = (color1, color2, progress) => {
+      return color1.map((c, i) => Math.round(c * (1 - progress) + color2[i] * progress));
+    };
 
     function drawDayNightOverlay() {
       const { phase, intensity, nightProgress } = getDayNightPhase();
 
+      if (phase === 'day' || intensity <= 0) return;
+
       const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      const nightAlpha = intensity * 0.7;
 
       if (phase === 'night') {
-        gradient.addColorStop(0, `rgba(0, 0, 50, ${intensity * 0.7})`);
-        gradient.addColorStop(0.5, `rgba(0, 0, 35, ${intensity * 0.7})`);
-        gradient.addColorStop(1, `rgba(0, 0, 20, ${intensity * 0.7})`);
+        gradient.addColorStop(0, `rgba(0, 0, 50, ${nightAlpha})`);
+        gradient.addColorStop(0.5, `rgba(0, 0, 35, ${nightAlpha})`);
+        gradient.addColorStop(1, `rgba(0, 0, 20, ${nightAlpha})`);
       } else if (phase === 'sunset') {
-        const sunsetColors = {
-          top: [255, 150, 50],
-          middle: [255, 100, 50],
-          bottom: [150, 50, 100]
-        };
-        const nightColors = {
-          top: [0, 0, 50],
-          middle: [0, 0, 35],
-          bottom: [0, 0, 20]
-        };
+        const sunsetColors = { top: [255, 150, 50], middle: [255, 100, 50], bottom: [150, 50, 100] };
+        const nightColors = { top: [0, 0, 50], middle: [0, 0, 35], bottom: [0, 0, 20] };
 
-        const blendColors = (color1, color2, progress) => {
-          return color1.map((c, i) => Math.round(c * (1 - progress) + color2[i] * progress));
-        };
+        const top = blendColors(sunsetColors.top, nightColors.top, nightProgress || 0);
+        const middle = blendColors(sunsetColors.middle, nightColors.middle, nightProgress || 0);
+        const bottom = blendColors(sunsetColors.bottom, nightColors.bottom, nightProgress || 0);
 
-        const topColor = blendColors(sunsetColors.top, nightColors.top, nightProgress || 0);
-        const middleColor = blendColors(sunsetColors.middle, nightColors.middle, nightProgress || 0);
-        const bottomColor = blendColors(sunsetColors.bottom, nightColors.bottom, nightProgress || 0);
-
-        gradient.addColorStop(0, `rgba(${topColor.join(',')}, ${intensity * 0.6})`);
-        gradient.addColorStop(0.5, `rgba(${middleColor.join(',')}, ${intensity * 0.5})`);
-        gradient.addColorStop(1, `rgba(${bottomColor.join(',')}, ${intensity * 0.4})`);
+        gradient.addColorStop(0, `rgba(${top[0]},${top[1]},${top[2]}, ${intensity * 0.6})`);
+        gradient.addColorStop(0.5, `rgba(${middle[0]},${middle[1]},${middle[2]}, ${intensity * 0.5})`);
+        gradient.addColorStop(1, `rgba(${bottom[0]},${bottom[1]},${bottom[2]}, ${intensity * 0.4})`);
       } else if (phase === 'sunrise') {
-        const sunriseColors = {
-          top: [255, 200, 150],
-          middle: [255, 180, 100],
-          bottom: [200, 150, 100]
-        };
-        const nightColors = {
-          top: [0, 0, 50],
-          middle: [0, 0, 35],
-          bottom: [0, 0, 20]
-        };
+        const sunriseColors = { top: [255, 200, 150], middle: [255, 180, 100], bottom: [200, 150, 100] };
+        const nightColors = { top: [0, 0, 50], middle: [0, 0, 35], bottom: [0, 0, 20] };
 
-        const blendColors = (color1, color2, progress) => {
-          return color1.map((c, i) => Math.round(c * (1 - progress) + color2[i] * progress));
-        };
+        // Here nightProgress goes from 1 to 0 during sunrise
+        const top = blendColors(sunriseColors.top, nightColors.top, nightProgress || 0);
+        const middle = blendColors(sunriseColors.middle, nightColors.middle, nightProgress || 0);
+        const bottom = blendColors(sunriseColors.bottom, nightColors.bottom, nightProgress || 0);
 
-        const topColor = blendColors(nightColors.top, sunriseColors.top, 1 - (nightProgress || 0));
-        const middleColor = blendColors(nightColors.middle, sunriseColors.middle, 1 - (nightProgress || 0));
-        const bottomColor = blendColors(nightColors.bottom, sunriseColors.bottom, 1 - (nightProgress || 0));
-
-        gradient.addColorStop(0, `rgba(${topColor.join(',')}, ${intensity * 0.6})`);
-        gradient.addColorStop(0.5, `rgba(${middleColor.join(',')}, ${intensity * 0.5})`);
-        gradient.addColorStop(1, `rgba(${bottomColor.join(',')}, ${intensity * 0.4})`);
+        gradient.addColorStop(0, `rgba(${top[0]},${top[1]},${top[2]}, ${intensity * 0.6})`);
+        gradient.addColorStop(0.5, `rgba(${middle[0]},${middle[1]},${middle[2]}, ${intensity * 0.5})`);
+        gradient.addColorStop(1, `rgba(${bottom[0]},${bottom[1]},${bottom[2]}, ${intensity * 0.4})`);
       }
 
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      if (phase === 'night' || phase === 'sunset' || phase === 'sunrise') {
-        const moonOpacity = phase === 'night' ? intensity :
-          phase === 'sunset' ? easeInOutCubic(nightProgress || 0) :
-            phase === 'sunrise' ? easeInOutCubic(nightProgress || 0) : 0;
-
+      // Moon and stars
+      const moonOpacity = phase === 'night' ? intensity : easeInOutCubic(nightProgress || 0);
+      if (moonOpacity > 0) {
         const moonX = canvas.width * 0.8;
         const moonY = canvas.height * 0.2;
         const moonGlow = ctx.createRadialGradient(
@@ -1798,33 +1811,15 @@
         ctx.arc(moonX, moonY, 31, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Draw stars with proper variable definitions
-        const numStars = 50;
-        for (let i = 0; i < numStars; i++) {
-          const x = Math.random() * canvas.width;
-          const y = Math.random() * (canvas.height * 0.7); // Stars only in upper 70% of sky
-          const size = Math.random() * 2 + 1;
-
-          const pulseOpacity = 0.5 + 0.5 * Math.sin(Date.now() * (Math.PI / 5000) + i);
+        const now = Date.now();
+        stars.forEach(star => {
+          const pulseOpacity = 0.5 + 0.5 * Math.sin(now * 0.001 + star.phase);
           const starOpacity = moonOpacity * pulseOpacity;
-
-          // Draw star
-          ctx.fillStyle = `rgba(255, 255, 255, ${starOpacity})`;
-          ctx.beginPath();
-          ctx.arc(x, y, size, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Add glow effect for larger stars
-          if (size > 2) {
-            const starGlow = ctx.createRadialGradient(x, y, 0, x, y, size * 3);
-            starGlow.addColorStop(0, `rgba(255, 255, 255, ${starOpacity * 0.3})`);
-            starGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
-            ctx.fillStyle = starGlow;
-            ctx.beginPath();
-            ctx.arc(x, y, size * 3, 0, Math.PI * 2);
-            ctx.fill();
+          if (starOpacity > 0.1) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${starOpacity})`;
+            ctx.fillRect(star.x * canvas.width, star.y * canvas.height, star.size, star.size);
           }
-        }
+        });
       }
     }
 
@@ -2099,8 +2094,7 @@
 
 
       updateParticles();
-      updateDogState(); // Sostituito updateSquareState con updateDogState
-      timeOfDay = (Date.now() % DAY_DURATION) / DAY_DURATION;
+      updateDogState();
 
       updateShake();
 
@@ -2431,6 +2425,10 @@
       console.log('🔄 Reset selectedCharacter a null');
 
       // Rimuovi tutte le selezioni visive
+      const characterOptions = document.querySelector('.character-options');
+      if (characterOptions) {
+        characterOptions.classList.remove('has-selection');
+      }
       document.querySelectorAll('.character-option').forEach(option => {
         option.classList.remove('selected');
       });
@@ -2489,6 +2487,11 @@
       console.log(`selectedCharacter impostato a: ${selectedCharacter}`);
 
       // Rimuovi selezione precedente
+      const characterOptions = document.querySelector('.character-options');
+      if (characterOptions) {
+        characterOptions.classList.add('has-selection');
+      }
+
       document.querySelectorAll('.character-option').forEach(option => {
         option.classList.remove('selected');
         console.log(`Rimossa selezione da: ${option.getAttribute('data-character')}`);
@@ -2627,7 +2630,8 @@
 
       score = 0;
       speed = 2;
-      ninjaPosition = 'left';
+      ninjaPosition = tutorialCompleted ? 'left' : 'right'; // Nel tutorial inizia a destra
+
       isHurt = false;
       startScreen.style.display = 'none';
       document.getElementById('characterSelectionScreen').style.display = 'none';
@@ -2706,51 +2710,72 @@
     function handleTutorialInput(side) {
       if (gameState !== 'tutorial') return;
 
+      // TUTORIAL INVERTITO: ninja inizia a DESTRA
       if (tutorialStep === 0) {
-        if (side === 'right') {
-          slash('right');
-          tutorialStep = 1;
-          console.log('📖 Tutorial Step 1: Taglio a destra effettuato');
-        } else {
-          // Permetti di tagliare anche dallo stesso lato nel tutorial per feedback
-          slash('left');
-        }
-      } else if (tutorialStep === 1) {
+        // Step 0: Ninja a destra, deve colpire a SINISTRA
         if (side === 'left') {
           slash('left');
-          console.log('📖 Tutorial completato!');
-          completeTutorial();
+          tutorialStep = 1;
+          console.log('📖 Tutorial Step 1: Taglio a sinistra effettuato');
         } else {
           slash('right');
         }
+      } else if (tutorialStep === 1) {
+        // Step 1: Ninja a sinistra, deve tornare a DESTRA
+        if (side === 'right') {
+          slash('right');
+          tutorialStep = 2;
+          console.log('📖 Tutorial Step 2: Avoid Branches');
+        } else {
+          slash('left');
+        }
+      } else if (tutorialStep === 2) {
+        // Step 2: Ninja a destra, ramo a destra sopra, deve andare a SINISTRA
+        if (side === 'left') {
+          slash('left');
+          tutorialStep = 3; // Stato di successo: mostra "WELL DONE!"
+          console.log('📖 Tutorial completato - Fase di attesa celebrativa');
+          completeTutorial();
+        } else {
+          startShake(5);
+          console.log('⚠️ Attento al ramo!');
+          slash('right');
+        }
+      } else if (tutorialStep === 3) {
+        // Durante lo step di successo, permetti comunque di tagliare per feedback
+        slash(side);
       }
     }
+
+
 
 
     function completeTutorial() {
-
       tutorialCompleted = true;
-      tutorialStep = 2; // Stato di transizione o fine
-
-      // Salva nel Cloud Storage
+      // Il salvataggio avviene subito
       if (window.FarcadeSDK && window.FarcadeSDK.singlePlayer && window.FarcadeSDK.singlePlayer.cloudStorage) {
         window.FarcadeSDK.singlePlayer.cloudStorage.set({ tutorialCompleted: true })
-          .then(() => console.log('☁️ Stato tutorial salvato nel cloud'))
           .catch(err => console.error('❌ Errore salvataggio tutorial:', err));
       }
 
-      // Piccola pausa prima di iniziare il gioco vero
+      // MOMENTO DI WAIT: Pausa di 1.5 secondi per mostrare il messaggio "WELL DONE!"
       setTimeout(() => {
-        if (gameState === 'tutorial') {
-          gameState = 'playing';
-          cycleStartTime = Date.now(); // Reset ciclo giorno/notte per l'inizio reale
-          console.log('🚀 Gioco iniziato dopo tutorial');
-        }
-      }, 1000);
+        gameState = 'playing';
+        score = 0;
+        energy = MAX_ENERGY;
+        cycleStartTime = Date.now();
+        initializeBamboo(); // Refresh per iniziare la partita vera
+        flashOpacity = 0.8; // Flash più marcato per il passaggio al gioco
+        console.log('🚀 PARTITA INIZIATA - Tutorial completato!');
+      }, 1500);
     }
 
-    function updateTutorial() {
 
+
+
+
+
+    function updateTutorial() {
       tutorialPulse += 0.05;
       updateParticles();
       updateShake();
@@ -2774,9 +2799,29 @@
           }
         }
       });
+
+      // FORZATURA RAMO STEP 2: Il ninja è a destra, il ramo appare sopra di lui
+      if (tutorialStep === 2) {
+        const baseSection = bambooSections.find(s => Math.abs(s.y - BAMBOO_BASE_Y) < 10);
+        const sectionAbove = bambooSections.find(s => Math.abs(s.y - (BAMBOO_BASE_Y - BAMBOO_SECTION_HEIGHT)) < 10);
+
+        if (baseSection) {
+          baseSection.visible = true;
+          baseSection.fadeOut = 1.0;
+          baseSection.intact = true; // Impedisce che il tronco si spezzi se colpito dal lato sbagliato
+        }
+
+        if (sectionAbove) {
+          sectionAbove.hasBranch = true;
+          sectionAbove.branchSide = 'right';
+          sectionAbove.hasBonus = false;
+        }
+      }
     }
 
     function drawTutorial() {
+
+
 
       // Overlay scuro leggero
       ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
@@ -2796,19 +2841,26 @@
       let promptText = "";
       let promptX = 0;
 
+      // TUTORIAL INVERTITO: prompt e frecce speculari
       if (tutorialStep === 0) {
         promptText = "TAP HERE TO CUT";
-        promptX = canvas.width * 0.75; // Lato destro
+        promptX = 125; // Lato SINISTRO (ninja è a destra)
       } else if (tutorialStep === 1) {
         promptText = "CHANGE POSITION";
-        promptX = canvas.width * 0.25; // Lato sinistro
+        promptX = 375; // Lato DESTRO (ninja è a sinistra)
       } else if (tutorialStep === 2) {
-        promptText = "GREAT! GO!";
-        promptX = canvas.width * 0.5;
+        promptText = "AVOID BRANCHES!";
+        promptX = 125; // Deve andare a SINISTRA (ramo è a destra)
+      } else if (tutorialStep === 3) {
+        promptText = "WELL DONE!";
+        promptX = 250;
       }
 
+
+
       // Disegna cerchio pulsante
-      if (tutorialStep < 2) {
+      if (tutorialStep < 3) {
+
         ctx.beginPath();
         ctx.arc(promptX, FLOOR_Y - 100, 40 * pulseScale, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.3})`;
@@ -2821,17 +2873,19 @@
         ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
         const arrowY = FLOOR_Y - 100;
         ctx.beginPath();
-        if (tutorialStep === 0) {
-          // Freccia verso destra
+        if (tutorialStep === 1) {
+          // Freccia verso DESTRA (step 1: torna a destra)
           ctx.moveTo(promptX - 10, arrowY - 10);
           ctx.lineTo(promptX + 10, arrowY);
           ctx.lineTo(promptX - 10, arrowY + 10);
         } else {
-          // Freccia verso sinistra
+          // Freccia verso SINISTRA (step 0 e 2: vai a sinistra)
           ctx.moveTo(promptX + 10, arrowY - 10);
           ctx.lineTo(promptX - 10, arrowY);
           ctx.lineTo(promptX + 10, arrowY + 10);
         }
+
+
         ctx.fill();
       }
 
