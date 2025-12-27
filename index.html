@@ -878,6 +878,8 @@
     let tutorialCompleted = false;
     let tutorialStep = 0;
     let tutorialPulse = 0;
+    let tutorialFeedbacks = []; // Array per messaggi fluttuanti nel tutorial
+
 
     let selectedCharacter = null; // 'master' o 'student'
     let score = 0;
@@ -2710,13 +2712,30 @@
     function handleTutorialInput(side) {
       if (gameState !== 'tutorial') return;
 
+      // Funzione di utilità per feedback visivo
+      const triggerSuccess = (x, y, msg) => {
+        // Messaggio fluttuante
+        tutorialFeedbacks.push({
+          text: msg,
+          x: x,
+          y: y,
+          life: 1.0,
+          scale: 0.8
+        });
+        // Particelle dorate
+        for (let i = 0; i < 20; i++) {
+          particles.push(new Particle(x, y, '#FFD700'));
+        }
+        startShake(10);
+      };
+
       // TUTORIAL INVERTITO: ninja inizia a DESTRA
       if (tutorialStep === 0) {
         // Step 0: Ninja a destra, deve colpire a SINISTRA
         if (side === 'left') {
           slash('left');
+          triggerSuccess(125, FLOOR_Y - 100, "NICE!");
           tutorialStep = 1;
-          console.log('📖 Tutorial Step 1: Taglio a sinistra effettuato');
         } else {
           slash('right');
         }
@@ -2724,8 +2743,8 @@
         // Step 1: Ninja a sinistra, deve tornare a DESTRA
         if (side === 'right') {
           slash('right');
+          triggerSuccess(375, FLOOR_Y - 100, "GREAT!");
           tutorialStep = 2;
-          console.log('📖 Tutorial Step 2: Avoid Branches');
         } else {
           slash('left');
         }
@@ -2733,12 +2752,11 @@
         // Step 2: Ninja a destra, ramo a destra sopra, deve andare a SINISTRA
         if (side === 'left') {
           slash('left');
-          tutorialStep = 3; // Stato di successo: mostra "WELL DONE!"
-          console.log('📖 Tutorial completato - Fase di attesa celebrativa');
+          triggerSuccess(125, FLOOR_Y - 100, "PERFECT!");
+          tutorialStep = 3;
           completeTutorial();
         } else {
           startShake(5);
-          console.log('⚠️ Attento al ramo!');
           slash('right');
         }
       } else if (tutorialStep === 3) {
@@ -2746,6 +2764,7 @@
         slash(side);
       }
     }
+
 
 
 
@@ -2758,7 +2777,19 @@
           .catch(err => console.error('❌ Errore salvataggio tutorial:', err));
       }
 
+      // Celebrazione finale: pioggia di particelle
+      for (let j = 0; j < 5; j++) {
+        setTimeout(() => {
+          const rx = Math.random() * canvas.width;
+          const ry = Math.random() * (canvas.height * 0.5);
+          for (let i = 0; i < 15; i++) {
+            particles.push(new Particle(rx, ry, j % 2 === 0 ? '#FFD700' : '#FFFFFF'));
+          }
+        }, j * 200);
+      }
+
       // MOMENTO DI WAIT: Pausa di 1.5 secondi per mostrare il messaggio "WELL DONE!"
+
       setTimeout(() => {
         gameState = 'playing';
         score = 0;
@@ -2779,7 +2810,17 @@
       tutorialPulse += 0.05;
       updateParticles();
       updateShake();
+
+      // Update floating feedbacks
+      tutorialFeedbacks.forEach((f, index) => {
+        f.y -= 2;
+        f.life -= 0.02;
+        f.scale += 0.01;
+        if (f.life <= 0) tutorialFeedbacks.splice(index, 1);
+      });
+
       // L'energia resta piena nel tutorial
+
       energy = MAX_ENERGY;
 
       // Gestione animazione ninja e bamboo nel tutorial
@@ -2889,12 +2930,29 @@
         ctx.fill();
       }
 
-      // Disegna testo
-      ctx.strokeText(promptText, canvas.width / 2, textY);
-      ctx.fillText(promptText, canvas.width / 2, textY);
+      // Disegna feedback fluttuanti
+      tutorialFeedbacks.forEach(f => {
+        ctx.save();
+        ctx.globalAlpha = f.life;
+        ctx.font = `bold ${24 * f.scale}px "Press Start 2P"`;
+        ctx.fillStyle = "#FFD700";
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 4;
+        ctx.strokeText(f.text, f.x, f.y);
+        ctx.fillText(f.text, f.x, f.y);
+        ctx.restore();
+      });
+
+      // Disegna testo principale
+      ctx.save();
+      const textJump = Math.sin(tutorialPulse * 2) * 5;
+      ctx.strokeText(promptText, canvas.width / 2, textY + textJump);
+      ctx.fillText(promptText, canvas.width / 2, textY + textJump);
+      ctx.restore();
 
       ctx.restore();
     }
+
 
     canvas.addEventListener('click', (e) => {
 
