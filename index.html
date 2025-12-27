@@ -850,6 +850,10 @@
 
     // Stato del gioco
     let gameState = 'start';
+    let tutorialCompleted = false;
+    let tutorialStep = 0;
+    let tutorialPulse = 0;
+
     let selectedCharacter = null; // 'master' o 'student'
     let score = 0;
     let speed = 2;
@@ -2058,19 +2062,27 @@
       // Disegna il pavimento sempre
       drawFloor();
 
-      // Disegna gli elementi del gioco solo se stiamo giocando
-      if (gameState === 'playing') {
-        drawMovingDog();
+      // Disegna gli elementi del gioco se stiamo giocando o nel tutorial
+      if (gameState === 'playing' || gameState === 'tutorial') {
+        if (gameState === 'playing') drawMovingDog();
         drawBamboo();
-        drawScoreBoard();
+        if (gameState === 'playing') drawScoreBoard();
         drawNinja();
         drawParticles();
         drawDayNightOverlay();
         drawFlashEffect();
-        draw2XText();
-        drawImmortalText();
-        drawBorderPulseEffect();
+
+        if (gameState === 'playing') {
+          draw2XText();
+          drawImmortalText();
+          drawBorderPulseEffect();
+        }
+
+        if (gameState === 'tutorial') {
+          drawTutorial();
+        }
       }
+
 
       ctx.restore();
     }
@@ -2079,7 +2091,12 @@
     const ENEMY_FADE_SPEED = 0.03;
 
     function update() {
+      if (gameState === 'tutorial') {
+        updateTutorial();
+        return;
+      }
       if (gameState !== 'playing') return;
+
 
       updateParticles();
       updateDogState(); // Sostituito updateSquareState con updateDogState
@@ -2218,7 +2235,10 @@
     }
 
     function checkCollisions(side) {
-      if (gameState !== 'playing') return false;
+      if (gameState !== 'playing' && gameState !== 'tutorial') return false;
+      if (gameState === 'tutorial') return false; // Niente collisioni nel tutorial
+
+
 
       const sectionIndex = bambooSections.findIndex(section => section.y === BAMBOO_BASE_Y);
       if (sectionIndex < 0) return false;
@@ -2255,8 +2275,9 @@
             createExplosion(enemyX, currentSection.y + BAMBOO_SECTION_HEIGHT / 2);
 
             setTimeout(() => {
-              if (gameState === 'playing') {
+              if (gameState === 'playing' || gameState === 'tutorial') {
                 updateBamboo();
+
                 window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
               }
             }, 100);
@@ -2288,6 +2309,8 @@
     }
 
     function handleCollision() {
+      if (gameState === 'tutorial') return; // Niente collisioni nel tutorial
+
       // Sistema Rage dell'Allieva - immortalità durante l'effetto
       if (selectedCharacter === 'student' && rageEffectActive) {
         console.log('Allieva immune al danno grazie al Rage!');
@@ -2308,7 +2331,8 @@
     }
 
     function slash(side) {
-      if (gameState !== 'playing') return;
+      if (gameState !== 'playing' && gameState !== 'tutorial') return;
+
 
       const sectionIndex = bambooSections.findIndex(section => section.y === BAMBOO_BASE_Y);
       if (sectionIndex < 0) return;
@@ -2368,8 +2392,9 @@
         }
 
         setTimeout(() => {
-          if (gameState === 'playing') {
+          if (gameState === 'playing' || gameState === 'tutorial') {
             if (nextSection && nextSection.hasBranch && nextSection.branchSide === side && !nextSection.hasBonus) {
+
               // Sistema Rage dell'Allieva - disattiva collisioni con rami durante immortalità
               if (selectedCharacter === 'student' && rageEffectActive) {
                 console.log('Allieva immune ai rami (nextSection) grazie al Rage!');
@@ -2592,7 +2617,14 @@
         AudioManager.playIntroMusic();
       });
 
-      gameState = 'playing';
+      if (!tutorialCompleted) {
+        gameState = 'tutorial';
+        tutorialStep = 0;
+        console.log('📖 Tutorial iniziato');
+      } else {
+        gameState = 'playing';
+      }
+
       score = 0;
       speed = 2;
       ninjaPosition = 'left';
@@ -2641,32 +2673,177 @@
     }
 
     document.addEventListener('keydown', (e) => {
-      if (gameState === 'playing') {
+      if (gameState === 'playing' || gameState === 'tutorial') {
         if (e.key === 'ArrowLeft') {
-          slash('left');
+          handleTutorialInput('left');
+          if (gameState === 'playing') slash('left');
         }
         if (e.key === 'ArrowRight') {
-          slash('right');
+          handleTutorialInput('right');
+          if (gameState === 'playing') slash('right');
         }
       }
+
     });
 
     // Gestione input via touch/click sulla superficie di gioco
     // Ora usiamo direttamente il canvas dato che game-area è stato rimosso
 
     function handleInput(clientX) {
-      if (gameState === 'playing') {
+      if (gameState === 'playing' || gameState === 'tutorial') {
         const rect = canvas.getBoundingClientRect();
         const x = clientX - rect.left;
-        if (x < rect.width / 2) {
+        const side = x < rect.width / 2 ? 'left' : 'right';
+
+        if (gameState === 'tutorial') {
+          handleTutorialInput(side);
+        } else {
+          slash(side);
+        }
+      }
+    }
+
+    function handleTutorialInput(side) {
+      if (gameState !== 'tutorial') return;
+
+      if (tutorialStep === 0) {
+        if (side === 'right') {
+          slash('right');
+          tutorialStep = 1;
+          console.log('📖 Tutorial Step 1: Taglio a destra effettuato');
+        } else {
+          // Permetti di tagliare anche dallo stesso lato nel tutorial per feedback
           slash('left');
+        }
+      } else if (tutorialStep === 1) {
+        if (side === 'left') {
+          slash('left');
+          console.log('📖 Tutorial completato!');
+          completeTutorial();
         } else {
           slash('right');
         }
       }
     }
 
+
+    function completeTutorial() {
+
+      tutorialCompleted = true;
+      tutorialStep = 2; // Stato di transizione o fine
+
+      // Salva nel Cloud Storage
+      if (window.FarcadeSDK && window.FarcadeSDK.singlePlayer && window.FarcadeSDK.singlePlayer.cloudStorage) {
+        window.FarcadeSDK.singlePlayer.cloudStorage.set({ tutorialCompleted: true })
+          .then(() => console.log('☁️ Stato tutorial salvato nel cloud'))
+          .catch(err => console.error('❌ Errore salvataggio tutorial:', err));
+      }
+
+      // Piccola pausa prima di iniziare il gioco vero
+      setTimeout(() => {
+        if (gameState === 'tutorial') {
+          gameState = 'playing';
+          cycleStartTime = Date.now(); // Reset ciclo giorno/notte per l'inizio reale
+          console.log('🚀 Gioco iniziato dopo tutorial');
+        }
+      }, 1000);
+    }
+
+    function updateTutorial() {
+
+      tutorialPulse += 0.05;
+      updateParticles();
+      updateShake();
+      // L'energia resta piena nel tutorial
+      energy = MAX_ENERGY;
+
+      // Gestione animazione ninja e bamboo nel tutorial
+      if (isAttacking) {
+        attackTimer++;
+        if (attackTimer >= ATTACK_DURATION) {
+          isAttacking = false;
+          attackTimer = 0;
+        }
+      }
+
+      bambooSections.forEach(section => {
+        if (!section.intact && section.visible) {
+          section.fadeOut -= FADE_SPEED;
+          if (section.fadeOut <= 0) {
+            section.visible = false;
+          }
+        }
+      });
+    }
+
+    function drawTutorial() {
+
+      // Overlay scuro leggero
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const pulseScale = 1 + Math.sin(tutorialPulse) * 0.1;
+      const alpha = 0.7 + Math.sin(tutorialPulse) * 0.3;
+
+      ctx.save();
+      ctx.font = '16px "Press Start 2P"';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+      ctx.strokeStyle = 'black';
+      ctx.lineWidth = 4;
+
+      const textY = canvas.height * 0.4;
+      let promptText = "";
+      let promptX = 0;
+
+      if (tutorialStep === 0) {
+        promptText = "TAP HERE TO CUT";
+        promptX = canvas.width * 0.75; // Lato destro
+      } else if (tutorialStep === 1) {
+        promptText = "CHANGE POSITION";
+        promptX = canvas.width * 0.25; // Lato sinistro
+      } else if (tutorialStep === 2) {
+        promptText = "GREAT! GO!";
+        promptX = canvas.width * 0.5;
+      }
+
+      // Disegna cerchio pulsante
+      if (tutorialStep < 2) {
+        ctx.beginPath();
+        ctx.arc(promptX, FLOOR_Y - 100, 40 * pulseScale, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.3})`;
+        ctx.fill();
+        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Freccia semplice
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        const arrowY = FLOOR_Y - 100;
+        ctx.beginPath();
+        if (tutorialStep === 0) {
+          // Freccia verso destra
+          ctx.moveTo(promptX - 10, arrowY - 10);
+          ctx.lineTo(promptX + 10, arrowY);
+          ctx.lineTo(promptX - 10, arrowY + 10);
+        } else {
+          // Freccia verso sinistra
+          ctx.moveTo(promptX + 10, arrowY - 10);
+          ctx.lineTo(promptX - 10, arrowY);
+          ctx.lineTo(promptX + 10, arrowY + 10);
+        }
+        ctx.fill();
+      }
+
+      // Disegna testo
+      ctx.strokeText(promptText, canvas.width / 2, textY);
+      ctx.fillText(promptText, canvas.width / 2, textY);
+
+      ctx.restore();
+    }
+
     canvas.addEventListener('click', (e) => {
+
       handleInput(e.clientX);
     });
 
@@ -2680,6 +2857,19 @@
       console.log('🔇 Farcade toggle_mute:', data.isMuted);
       AudioManager.toggleMute(data.isMuted);
     });
+
+    // Caricamento stato tutorial dal Cloud Storage
+    function loadTutorialState() {
+      if (window.FarcadeSDK && window.FarcadeSDK.singlePlayer && window.FarcadeSDK.singlePlayer.cloudStorage) {
+        window.FarcadeSDK.singlePlayer.cloudStorage.get(['tutorialCompleted'])
+          .then(data => {
+            tutorialCompleted = data.tutorialCompleted || false;
+            console.log('☁️ Stato tutorial caricato:', tutorialCompleted);
+          })
+          .catch(err => console.error('❌ Errore caricamento tutorial:', err));
+      }
+    }
+
 
     window.FarcadeSDK.onPlayAgain(() => {
       console.log('🎮 Farcade play_again chiamato!');
@@ -2741,6 +2931,8 @@
     // Inizializza l'AudioManager al caricamento del DOM e gestisce il resume
     document.addEventListener('DOMContentLoaded', () => {
       AudioManager.init();
+      loadTutorialState();
+
 
       const startButton = document.getElementById('mainStartButton');
       if (startButton) {
