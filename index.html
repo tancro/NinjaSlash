@@ -474,8 +474,8 @@
       ninjaHitSound: 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/nie2vZB6JVyS/hit-hvxK4INhLVlMkKQ2ikDh8Lsqwo1bbP.mpeg?xl4F'
     };
 
-    // 11 images + 5 sounds = 16 total assets
-    const totalAssets = 11 + Object.keys(soundURLs).length;
+    // 16 images + 5 sounds = 21 total assets
+    const totalAssets = 16 + Object.keys(soundURLs).length;
 
     function assetLoaded(assetName) {
       assetsLoaded++;
@@ -553,7 +553,10 @@
 
             await this.loadAllSounds();
 
-            // Gestione visibilità per sospendere audio
+            // Sospendiamo silenziosamente se non ancora permesso, senza generare errori fastidiosi
+            if (this.audioContext.state === 'suspended') {
+              console.log('🎵 AudioContext in attesa di interazione utente...');
+            }
             document.addEventListener('visibilitychange', () => {
               if (document.hidden) {
                 this.audioContext.suspend();
@@ -878,9 +881,9 @@
     let tutorialCompleted = false;
     let tutorialStep = 0;
     let tutorialPulse = 0;
-    let tutorialFeedbacks = []; // Array per messaggi fluttuanti nel tutorial
-
-
+    let uiFeedbacks = []; // Array per messaggi fluttuanti nel gioco
+    let countdownValue = 0; // 3, 2, 1
+    let isCountdownActive = false;
     let selectedCharacter = null; // 'master' o 'student'
     let score = 0;
     let speed = 2;
@@ -904,7 +907,7 @@
     // Sistema Saggezza del Maestro
     let preciseCuts = 0;
     const PRECISE_CUTS_NEEDED = 10;
-    const PRECISION_THRESHOLD = 0.8; // 80% energia = taglio preciso
+    const PRECISION_THRESHOLD = 0.95; // 95% energia = taglio preciso
     let wisdomEffectActive = false;
     let wisdomEffectTimer = 0;
     const WISDOM_EFFECT_DURATION = 600; // 10 secondi a 60 FPS
@@ -926,6 +929,17 @@
     let show2XText = false;
     let twoXTextTimer = 0;
     const TWOX_TEXT_DURATION = 600; // 10 secondi a 60 FPS
+
+    function addFeedback(text, x, y, color = '#FFFFFF') {
+      uiFeedbacks.push({
+        text: text,
+        x: x,
+        y: y,
+        life: 1.0,
+        scale: 0.8,
+        color: color
+      });
+    }
 
     // Effetto scritta IMMORTALE per l'Allieva
     let showImmortalText = false;
@@ -1177,6 +1191,8 @@
       // Effetto sonoro (usa il suono di taglio come fallback)
       AudioManager.playSlashSound();
 
+      addFeedback("WISDOM!", canvas.width / 2, canvas.height / 2, "#FFD700");
+
       console.log('Saggezza del Maestro attivata! +10 punti, energia rallentata');
     }
 
@@ -1198,6 +1214,8 @@
 
       // Effetto sonoro
       AudioManager.playSlashSound();
+
+      addFeedback("RAGE!", canvas.width / 2, canvas.height / 2, "#FF0000");
 
       console.log('Rage dell\'Allieva attivata! +10 punti, immortalità per 10 secondi');
     }
@@ -2078,6 +2096,20 @@
         if (gameState === 'tutorial') {
           drawTutorial();
         }
+
+        // Disegna feedback fluttuanti sempre
+        uiFeedbacks.forEach(f => {
+          ctx.save();
+          ctx.globalAlpha = f.life;
+          ctx.font = `bold ${24 * f.scale}px "Press Start 2P"`;
+          ctx.fillStyle = f.color || "#FFFFFF";
+          ctx.strokeStyle = "black";
+          ctx.lineWidth = 4;
+          ctx.textAlign = 'center';
+          ctx.strokeText(f.text, f.x, f.y);
+          ctx.fillText(f.text, f.x, f.y);
+          ctx.restore();
+        });
       }
 
 
@@ -2088,12 +2120,20 @@
     const ENEMY_FADE_SPEED = 0.03;
 
     function update() {
+      // Update floating feedbacks (Moved here to run always, including tutorial)
+      for (let i = uiFeedbacks.length - 1; i >= 0; i--) {
+        const f = uiFeedbacks[i];
+        f.y -= 2;
+        f.life -= 0.02;
+        f.scale += 0.005;
+        if (f.life <= 0) uiFeedbacks.splice(i, 1);
+      }
+
       if (gameState === 'tutorial') {
         updateTutorial();
         return;
       }
       if (gameState !== 'playing') return;
-
 
       updateParticles();
       updateDogState();
@@ -2269,6 +2309,7 @@
               canvas.width / 2 - BAMBOO_WIDTH / 2 - BRANCH_WIDTH :
               canvas.width / 2 + BAMBOO_WIDTH / 2 + BRANCH_WIDTH;
             createExplosion(enemyX, currentSection.y + BAMBOO_SECTION_HEIGHT / 2);
+            addFeedback("NICE HIT!", enemyX, currentSection.y, "#00f2ff");
 
             setTimeout(() => {
               if (gameState === 'playing' || gameState === 'tutorial') {
@@ -2354,37 +2395,43 @@
         currentSection.intact = false;
         currentSection.cutFromSide = side;
 
-        if (!(currentSection.hasBranch && currentSection.hasBonus)) {
-          // Moltiplicatore punti x2 quando la barra di saggezza è attiva
-          const pointMultiplier = wisdomEffectActive ? 2 : 1;
-          score += pointMultiplier;
+        // PRECISIONE: Calcola il feedback basandosi sullo stato IMMEDIATAMENTE PRIMA del taglio
+        const currentEnergyPct = energy / MAX_ENERGY;
+        const wasPrecise = currentEnergyPct >= PRECISION_THRESHOLD;
 
-          // Sistema Saggezza del Maestro - Contatore tagli precisi (solo se l'effetto non è attivo)
-          if (selectedCharacter === 'master' && !wisdomEffectActive && energy > MAX_ENERGY * PRECISION_THRESHOLD && preciseCuts < PRECISE_CUTS_NEEDED) {
-            preciseCuts++;
-            console.log(`Taglio preciso! ${preciseCuts}/${PRECISE_CUTS_NEEDED}`);
-            if (preciseCuts >= PRECISE_CUTS_NEEDED) {
-              // Barra piena - attiva automaticamente il potere
-              activateMasterWisdom();
-              console.log('Barra di saggezza piena! Potere attivato automaticamente');
-            }
-          } else if (selectedCharacter === 'master' && !wisdomEffectActive && energy <= MAX_ENERGY * PRECISION_THRESHOLD && preciseCuts < PRECISE_CUTS_NEEDED) {
-            preciseCuts = 0; // Reset se taglio non preciso (solo se non è già piena)
-          } else if (selectedCharacter === 'student' && !rageEffectActive && energy <= MAX_ENERGY * PRECISION_THRESHOLD) {
-            rageBar = 0; // Reset rage bar se taglio non preciso
+        // Guadagno punti e energia (se non è una collisione con nemico, gestita sopra)
+        const pointMultiplier = wisdomEffectActive ? 2 : 1;
+        score += pointMultiplier;
+
+        // Sistema Saggezza/Rage basato sulla precisione pre-taglio
+        if (selectedCharacter === 'master' && !wisdomEffectActive) {
+          if (wasPrecise) {
+            preciseCuts = Math.min(PRECISE_CUTS_NEEDED, preciseCuts + 1);
+            if (preciseCuts >= PRECISE_CUTS_NEEDED) activateMasterWisdom();
+          } else if (currentEnergyPct < 0.7) {
+            preciseCuts = 0; // Punizione più severa solo se scendi molto
+          }
+        } else if (selectedCharacter === 'student' && !rageEffectActive) {
+          rageBar = Math.min(MAX_RAGE, rageBar + (wasPrecise ? RAGE_GAIN_PER_CUT : RAGE_GAIN_PER_CUT / 2));
+          if (rageBar >= MAX_RAGE) activateStudentRage();
+        }
+
+        // Recupero energia calibrato (di meno se sei già alto per non saturare subito)
+        const energyBonus = wasPrecise ? ENERGY_GAIN * 0.8 : ENERGY_GAIN;
+        energy = Math.min(MAX_ENERGY, energy + energyBonus);
+
+        // Feedbacks visivi (solo in gioco reale)
+        if (gameState === 'playing') {
+          const feedbackX = side === 'left' ? 125 : 375;
+          if (wasPrecise) {
+            addFeedback("PERFECT!", feedbackX, FLOOR_Y - 150, "#FFD700");
+          } else if (currentEnergyPct > 0.6) {
+            addFeedback("GOOD!", feedbackX, FLOOR_Y - 150, "#FFFFFF");
           }
 
-          // Sistema Rage dell'Allieva
-          if (selectedCharacter === 'student' && !rageEffectActive) {
-            rageBar += RAGE_GAIN_PER_CUT;
-            console.log(`Rage bar: ${rageBar}/${MAX_RAGE}`);
-
-            if (rageBar >= MAX_RAGE) {
-              activateStudentRage();
-            }
+          if (score > 0 && score % 25 === 0) {
+            addFeedback(`${score} HITS!`, canvas.width / 2, canvas.height / 3, "#FFD700");
           }
-
-          energy = Math.min(MAX_ENERGY, energy + ENERGY_GAIN);
         }
 
         setTimeout(() => {
@@ -2714,14 +2761,7 @@
 
       // Funzione di utilità per feedback visivo
       const triggerSuccess = (x, y, msg) => {
-        // Messaggio fluttuante
-        tutorialFeedbacks.push({
-          text: msg,
-          x: x,
-          y: y,
-          life: 1.0,
-          scale: 0.8
-        });
+        addFeedback(msg, x, y, '#FFD700');
         // Particelle dorate
         for (let i = 0; i < 20; i++) {
           particles.push(new Particle(x, y, '#FFD700'));
@@ -2760,8 +2800,10 @@
           slash('right');
         }
       } else if (tutorialStep === 3) {
-        // Durante lo step di successo, permetti comunque di tagliare per feedback
-        slash(side);
+        // Blocca gli input durante il countdown vero e proprio
+        if (!isCountdownActive) {
+          slash(side);
+        }
       }
     }
 
@@ -2769,15 +2811,17 @@
 
 
 
+
     function completeTutorial() {
       tutorialCompleted = true;
-      // Il salvataggio avviene subito
+      tutorialStep = 3; // "WELL DONE!"
+
       if (window.FarcadeSDK && window.FarcadeSDK.singlePlayer && window.FarcadeSDK.singlePlayer.cloudStorage) {
         window.FarcadeSDK.singlePlayer.cloudStorage.set({ tutorialCompleted: true })
           .catch(err => console.error('❌ Errore salvataggio tutorial:', err));
       }
 
-      // Celebrazione finale: pioggia di particelle
+      // 1. Celebrazione iniziale (gioco libero per 1s)
       for (let j = 0; j < 5; j++) {
         setTimeout(() => {
           const rx = Math.random() * canvas.width;
@@ -2788,18 +2832,34 @@
         }, j * 200);
       }
 
-      // MOMENTO DI WAIT: Pausa di 1.5 secondi per mostrare il messaggio "WELL DONE!"
-
+      // 2. Inizio Countdown dopo 1 secondo di "WELL DONE!"
       setTimeout(() => {
-        gameState = 'playing';
-        score = 0;
-        energy = MAX_ENERGY;
-        cycleStartTime = Date.now();
-        initializeBamboo(); // Refresh per iniziare la partita vera
-        flashOpacity = 0.8; // Flash più marcato per il passaggio al gioco
-        console.log('🚀 PARTITA INIZIATA - Tutorial completato!');
-      }, 1500);
+        isCountdownActive = true;
+        countdownValue = 3;
+        AudioManager.playCollisionSound(); // Piccolo feedback acustico
+        startShake(5);
+
+        const cdInterval = setInterval(() => {
+          countdownValue--;
+          if (countdownValue > 0) {
+            startShake(5);
+            AudioManager.playCollisionSound();
+          } else {
+            clearInterval(cdInterval);
+            // 3. START GIOCO REALE al termine del countdown
+            gameState = 'playing';
+            score = 0;
+            energy = MAX_ENERGY;
+            cycleStartTime = Date.now();
+            initializeBamboo();
+            flashOpacity = 1.0; // Flash per l'inizio epico
+            isCountdownActive = false;
+            console.log('🚀 GIOCO INIZIATO (GO!)');
+          }
+        }, 800); // 800ms per ogni numero
+      }, 1000);
     }
+
 
 
 
@@ -2810,14 +2870,6 @@
       tutorialPulse += 0.05;
       updateParticles();
       updateShake();
-
-      // Update floating feedbacks
-      tutorialFeedbacks.forEach((f, index) => {
-        f.y -= 2;
-        f.life -= 0.02;
-        f.scale += 0.01;
-        if (f.life <= 0) tutorialFeedbacks.splice(index, 1);
-      });
 
       // L'energia resta piena nel tutorial
 
@@ -2885,22 +2937,24 @@
       // TUTORIAL INVERTITO: prompt e frecce speculari
       if (tutorialStep === 0) {
         promptText = "TAP HERE TO CUT";
-        promptX = 125; // Lato SINISTRO (ninja è a destra)
+        promptX = 125;
       } else if (tutorialStep === 1) {
         promptText = "CHANGE POSITION";
-        promptX = 375; // Lato DESTRO (ninja è a sinistra)
+        promptX = 375;
       } else if (tutorialStep === 2) {
         promptText = "AVOID BRANCHES!";
-        promptX = 125; // Deve andare a SINISTRA (ramo è a destra)
+        promptX = 125;
       } else if (tutorialStep === 3) {
-        promptText = "WELL DONE!";
+        promptText = isCountdownActive ? String(countdownValue) : "WELL DONE!";
         promptX = 250;
       }
 
 
 
-      // Disegna cerchio pulsante
-      if (tutorialStep < 3) {
+
+      // Disegna cerchio pulsante (solo se NON c'è il countdown)
+      if (tutorialStep < 3 && !isCountdownActive) {
+
 
         ctx.beginPath();
         ctx.arc(promptX, FLOOR_Y - 100, 40 * pulseScale, 0, Math.PI * 2);
@@ -2930,25 +2984,22 @@
         ctx.fill();
       }
 
-      // Disegna feedback fluttuanti
-      tutorialFeedbacks.forEach(f => {
-        ctx.save();
-        ctx.globalAlpha = f.life;
-        ctx.font = `bold ${24 * f.scale}px "Press Start 2P"`;
-        ctx.fillStyle = "#FFD700";
-        ctx.strokeStyle = "black";
-        ctx.lineWidth = 4;
-        ctx.strokeText(f.text, f.x, f.y);
-        ctx.fillText(f.text, f.x, f.y);
-        ctx.restore();
-      });
-
       // Disegna testo principale
       ctx.save();
       const textJump = Math.sin(tutorialPulse * 2) * 5;
-      ctx.strokeText(promptText, canvas.width / 2, textY + textJump);
-      ctx.fillText(promptText, canvas.width / 2, textY + textJump);
+
+      if (isCountdownActive) {
+        // Testo countdown GIGANTE
+        ctx.font = 'bold 80px "Press Start 2P"';
+        ctx.fillStyle = "#FFFFFF";
+        ctx.strokeText(promptText, canvas.width / 2, canvas.height / 2);
+        ctx.fillText(promptText, canvas.width / 2, canvas.height / 2);
+      } else {
+        ctx.strokeText(promptText, canvas.width / 2, textY + textJump);
+        ctx.fillText(promptText, canvas.width / 2, textY + textJump);
+      }
       ctx.restore();
+
 
       ctx.restore();
     }
